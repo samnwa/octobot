@@ -9,6 +9,29 @@ from pathlib import Path
 import httpx
 
 
+PROJECT_ROOT = os.path.abspath(os.getcwd())
+
+FORBIDDEN_PATH_PATTERNS = [
+    r'^/etc/', r'^/usr/', r'^/bin/', r'^/sbin/', r'^/boot/',
+    r'^/proc/', r'^/sys/', r'^/dev/', r'^/var/log/',
+    r'\.ssh/', r'\.gnupg/', r'\.aws/', r'\.kube/',
+]
+
+
+def _resolve_and_check_path(path, write=False):
+    resolved = os.path.abspath(os.path.expanduser(path))
+
+    if write:
+        for pattern in FORBIDDEN_PATH_PATTERNS:
+            if re.search(pattern, resolved):
+                return None, f"Access denied: writing to '{resolved}' is outside the allowed area"
+
+        if not resolved.startswith(PROJECT_ROOT) and not resolved.startswith("/tmp"):
+            return None, f"Access denied: path '{resolved}' is outside the project directory"
+
+    return resolved, ""
+
+
 TOOL_DEFINITIONS = [
     {
         "name": "read_file",
@@ -601,9 +624,12 @@ def execute_tool(name, input_data):
 
 def _handle_read_file(input_data):
     path = input_data["path"]
-    if not os.path.exists(path):
+    resolved, err = _resolve_and_check_path(path)
+    if err:
+        return {"error": err}
+    if not os.path.exists(resolved):
         return {"error": f"File not found: {path}"}
-    with open(path, "r") as f:
+    with open(resolved, "r") as f:
         lines = f.readlines()
     offset = input_data.get("offset", 1)
     limit = input_data.get("limit")
@@ -620,8 +646,11 @@ def _handle_read_file(input_data):
 
 def _handle_write_file(input_data):
     path = input_data["path"]
-    os.makedirs(os.path.dirname(path) if os.path.dirname(path) else ".", exist_ok=True)
-    with open(path, "w") as f:
+    resolved, err = _resolve_and_check_path(path, write=True)
+    if err:
+        return {"error": err}
+    os.makedirs(os.path.dirname(resolved) if os.path.dirname(resolved) else ".", exist_ok=True)
+    with open(resolved, "w") as f:
         f.write(input_data["content"])
     return {"status": "ok", "path": path, "bytes_written": len(input_data["content"])}
 
@@ -703,11 +732,14 @@ def _handle_search_files(input_data):
 
 def _handle_edit_file(input_data):
     path = input_data["path"]
+    resolved, err = _resolve_and_check_path(path, write=True)
+    if err:
+        return {"error": err}
     old_string = input_data["old_string"]
     new_string = input_data["new_string"]
-    if not os.path.exists(path):
+    if not os.path.exists(resolved):
         return {"error": f"File not found: {path}"}
-    with open(path, "r") as f:
+    with open(resolved, "r") as f:
         content = f.read()
     count = content.count(old_string)
     if count == 0:
@@ -715,7 +747,7 @@ def _handle_edit_file(input_data):
     if count > 1:
         return {"error": f"old_string found {count} times - must be unique. Add more context."}
     new_content = content.replace(old_string, new_string, 1)
-    with open(path, "w") as f:
+    with open(resolved, "w") as f:
         f.write(new_content)
     return {"status": "ok", "path": path}
 

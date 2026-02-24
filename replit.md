@@ -9,8 +9,8 @@ main.py                  - Entry point
 octobot/
   __init__.py            - Package init
   config.py              - Configuration (API key, model, base URL, constants)
-  tools.py               - 25 tool definitions, deferred loading, execution handlers
-  agent.py               - Core agent runtime with loop detection, approval, deferred tool summary in system prompt
+  tools.py               - 25 tool definitions, deferred loading, path restrictions, execution handlers
+  agent.py               - Core agent runtime with loop detection, approval, content tagging, deferred tool summary
   cli.py                 - Interactive CLI with Rich formatting, /tools, /skills commands
   memory.py              - Persistent memory loading from ~/.octobot/memory/MEMORY.md
   skills.py              - Skills system (SKILL.md loader from ~/.octobot/skills/ and ./skills/)
@@ -18,7 +18,7 @@ octobot/
   approval.py            - Approval workflows for dangerous operations (rm -rf, sudo, dotfiles)
   subagent.py            - Subagent spawning with isolated conversations (15 turn limit)
   browser.py             - Playwright browser automation with NixOS library auto-discovery
-  sandbox.py             - Sandboxed Python code execution for multi-tool chaining
+  sandbox.py             - AST-validated Python sandbox for multi-tool chaining
 README.md                - Comprehensive project documentation
 ```
 
@@ -30,9 +30,14 @@ README.md                - Comprehensive project documentation
   - Code execution sandbox: chain multiple tool calls in one round trip via Python code
   - Smart web extraction: trafilatura extracts main content, stripping boilerplate
   - Input examples: embedded in tool descriptions for better model understanding
+- **Security Layers**:
+  - AST-based code sandbox (blocks imports, dunder access, dangerous builtins at syntax tree level)
+  - Path restrictions (writes confined to project dir + /tmp, system paths blocked)
+  - Approval workflows (dangerous commands and sensitive file writes require user confirmation)
+  - Prompt injection defense (untrusted content tagged with delimiters, injection patterns detected)
+  - System prompt instructs model to never follow instructions in <untrusted_content> tags
 - **Browser Automation**: Playwright headless Chromium, accessibility snapshots with numbered refs, ref-based clicking/typing, vision (base64 screenshots sent as image blocks)
 - **Subagents**: Independent child agents for subtask delegation, 15 turn limit, no recursive spawning
-- **Approval Workflows**: Confirms dangerous commands and sensitive file writes
 - **Persistent Memory**: ~/.octobot/memory/MEMORY.md loaded into system prompt
 - **Skills System**: SKILL.md-based, compatible with OpenClaw/PicoClaw format
 - **Custom Identity**: ~/.octobot/AGENT.md and IDENTITY.md for personality

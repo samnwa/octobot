@@ -368,6 +368,71 @@ octobot/
 | Subagent max turns | 15 | Maximum turns for subagent calls |
 | API base URL | `https://api.synthetic.new/anthropic` | Synthetic API endpoint |
 
+## Security
+
+Octobot implements multiple layers of security to protect against accidental damage and adversarial attacks.
+
+### 1. AST-Based Code Sandbox
+
+The `code_execution` tool runs Python code in a sandboxed environment that uses **Abstract Syntax Tree (AST) validation** rather than string-pattern matching. Before code executes, it's parsed into a syntax tree and every node is inspected:
+
+- **Import statements** are rejected at the syntax level (can't bypass with string tricks)
+- **Dangerous dunder attributes** (`__subclasses__`, `__bases__`, `__globals__`, `__code__`, `__closure__`, etc.) are blocked by name in the AST
+- **Dangerous builtins** (`getattr`, `setattr`, `type`, `eval`, `exec`, `compile`, `open`, `globals`, `locals`) are removed entirely
+- **Tool functions are wrapped** in `SafeToolWrapper` objects that prevent attribute introspection — you can call them, but not access `.__globals__` or `.__code__`
+- **30-second timeout** via SIGALRM prevents infinite loops
+
+This is significantly more robust than string-pattern blocklists, which can be bypassed with string concatenation (`"__" + "import__"`), whitespace tricks, or Unicode.
+
+### 2. Path Restrictions
+
+File tools (`read_file`, `write_file`, `edit_file`) enforce path boundaries:
+
+- **Write operations** are restricted to the project directory and `/tmp`
+- **System paths** (`/etc/`, `/usr/`, `/bin/`, `/proc/`, `/sys/`, `/dev/`) are explicitly blocked
+- **Sensitive directories** (`.ssh/`, `.gnupg/`, `.aws/`, `.kube/`) are blocked
+- Paths are resolved to absolute form before checking, preventing `../../etc/passwd` traversal
+
+Read operations are unrestricted (the agent needs to read system files for debugging), but writes are tightly controlled.
+
+### 3. Approval Workflows
+
+Dangerous operations require explicit user confirmation via a `[Y/n]` prompt:
+
+- **Shell commands**: `rm -rf`, `sudo`, `chmod 777`, fork bombs, `dd`, `mkfs`, piping to shell, force push, etc.
+- **Sensitive file writes**: `.bashrc`, `.env`, `.ssh/`, `.gitconfig`, private keys
+- Approval is checked on `run_command`, `write_file`, `edit_file`, and `apply_patch`
+
+This is a second layer on top of path restrictions — even if a write is within the project directory, writing to `.env` still requires confirmation.
+
+### 4. Prompt Injection Defense
+
+When the agent fetches external content (web pages, search results, browser snapshots), the content is automatically:
+
+- **Tagged** with `<untrusted_content>` delimiters before being injected into model context
+- **Scanned** for common injection patterns ("ignore previous instructions", "you are now", "override your instructions", etc.)
+- **Flagged** with a `_injection_warning` field if suspicious patterns are detected
+
+The system prompt explicitly instructs the model to treat content within `<untrusted_content>` tags as data, never as instructions. This is the same approach used by production agent frameworks.
+
+### 5. Running Locally
+
+Running locally provides inherent security advantages:
+
+- **No third-party server** sees your files or code — only the LLM API receives content
+- **You control the execution environment** — can restrict with containers, VMs, or user permissions
+- **No persistent access** — when you close the terminal, the agent stops
+- **Network visibility** — you can monitor all outbound connections
+
+### What's NOT Protected
+
+Transparency about limitations:
+
+- **The API key** is sent over HTTPS to the Synthetic API — this is standard and unavoidable
+- **Shell commands** run with your user permissions — the approval blocklist catches common dangers but isn't exhaustive
+- **Prompt injection** defenses raise the bar but aren't bulletproof — a sufficiently crafted injection could still influence the model
+- **Browser profile** sharing gives the agent access to your cookies and sessions
+
 ## Inspiration
 
 - **[Octofriend](https://github.com/synthetic-lab/octofriend)** -- Open-source coding helper with great terminal UI
