@@ -176,7 +176,7 @@ TOOL_DEFINITIONS = [
     },
     {
         "name": "web_fetch",
-        "description": "Fetch a URL via HTTP GET and return the content as plain text (HTML tags stripped).",
+        "description": "Fetch a URL via HTTP GET and return extracted content. By default, uses smart content extraction (trafilatura) to return only the main article/body text, stripping navigation, footers, ads, and boilerplate. Set extract=false for raw stripped HTML.",
         "allowed_caller": "code_execution_20260120",
         "input_schema": {
             "type": "object",
@@ -188,13 +188,17 @@ TOOL_DEFINITIONS = [
                 "timeout": {
                     "type": "integer",
                     "description": "Request timeout in seconds. Default 15."
+                },
+                "extract": {
+                    "type": "boolean",
+                    "description": "Use smart content extraction (default true). Set false for raw page text."
                 }
             },
             "required": ["url"]
         },
         "input_examples": [
             {"url": "https://example.com"},
-            {"url": "https://example.com/api", "timeout": 30}
+            {"url": "https://example.com/api", "timeout": 30, "extract": False}
         ],
         "deferred_loading": True
     },
@@ -477,16 +481,68 @@ TOOL_DEFINITIONS = [
             "properties": {},
             "required": []
         }
+    },
+    {
+        "name": "tool_search",
+        "description": "Search for tools by name or description. Returns full schemas (with parameters) for matching tools. Use this to discover tools you haven't loaded yet. Many tools are available but their schemas are deferred to save tokens — use this to load them when needed.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Search query to match against tool names and descriptions (e.g., 'file', 'browser', 'search', 'edit')"
+                }
+            },
+            "required": ["query"]
+        }
+    },
+    {
+        "name": "code_execution",
+        "description": "Execute Python code that can call multiple tools as functions in a single round trip. Each tool is available as a Python function (e.g., read_file(path='x.py'), list_files(path='.'), run_command(command='ls')). Use this to chain tools efficiently: search files, then read matches, then process results — all in one call instead of multiple back-and-forth turns.\n\nAvailable tool functions: read_file, write_file, list_files, run_command, search_files, edit_file, web_fetch, apply_patch, web_search, tree, file_info, memory_save, memory_read. Use print() to output results.\n\nExample:\nfiles = list_files(path='src/')['files']\nfor f in files:\n    if f.endswith('.py'):\n        info = file_info(path=f)\n        print(f\"{f}: {info['size']} bytes\")",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "description": "Python code to execute. Use tool functions like read_file(path='x'), list_files(path='.'), run_command(command='ls'), etc. Use print() to output results."
+                }
+            },
+            "required": ["code"]
+        }
     }
 ]
+
+
+def _build_description_with_examples(tool_def):
+    desc = tool_def["description"]
+    examples = tool_def.get("input_examples")
+    if examples:
+        import json as _json
+        example_strs = [_json.dumps(ex, indent=2) for ex in examples]
+        desc += "\n\nExamples:\n" + "\n".join(f"```json\n{e}\n```" for e in example_strs)
+    return desc
 
 
 def get_tool_definitions():
     tools = []
     for t in TOOL_DEFINITIONS:
+        if t.get("deferred_loading"):
+            continue
         tool = {
             "name": t["name"],
-            "description": t["description"],
+            "description": _build_description_with_examples(t),
+            "input_schema": {**t["input_schema"]},
+        }
+        tools.append(tool)
+    return tools
+
+
+def get_all_tool_definitions():
+    tools = []
+    for t in TOOL_DEFINITIONS:
+        tool = {
+            "name": t["name"],
+            "description": _build_description_with_examples(t),
             "input_schema": {**t["input_schema"]},
         }
         tools.append(tool)
@@ -495,6 +551,15 @@ def get_tool_definitions():
 
 def get_deferred_tool_names():
     return [t["name"] for t in TOOL_DEFINITIONS if t.get("deferred_loading")]
+
+
+def get_deferred_tool_summary():
+    lines = []
+    for t in TOOL_DEFINITIONS:
+        if t.get("deferred_loading"):
+            short_desc = t["description"].split(".")[0] + "."
+            lines.append(f"- **{t['name']}**: {short_desc}")
+    return "\n".join(lines)
 
 
 def execute_tool(name, input_data):
@@ -522,6 +587,8 @@ def execute_tool(name, input_data):
         "browser_click_ref": _handle_browser_click_ref,
         "browser_type_ref": _handle_browser_type_ref,
         "browser_vision": _handle_browser_vision,
+        "tool_search": _handle_tool_search,
+        "code_execution": _handle_code_execution,
     }
     handler = handlers.get(name)
     if not handler:
@@ -656,12 +723,28 @@ def _handle_edit_file(input_data):
 def _handle_web_fetch(input_data):
     url = input_data["url"]
     timeout = input_data.get("timeout", 15)
-    response = httpx.get(url, timeout=timeout, follow_redirects=True)
+    extract = input_data.get("extract", True)
+    try:
+        response = httpx.get(url, timeout=timeout, follow_redirects=True)
+    except Exception:
+        response = httpx.get(url, timeout=timeout, follow_redirects=True, verify=False)
     response.raise_for_status()
     html = response.text
+
+    if extract:
+        try:
+            import trafilatura
+            extracted = trafilatura.extract(html, include_links=True, include_tables=True)
+            if extracted and len(extracted.strip()) > 100:
+                text = extracted.strip()
+                return {"content": text[:15000], "url": url, "status_code": response.status_code, "extraction": "smart"}
+        except Exception:
+            pass
+
     text = re.sub('<[^<]+?>', '', html)
     text = re.sub(r'\n\s*\n', '\n\n', text).strip()
-    return {"content": text[:50000], "url": url, "status_code": response.status_code}
+    limit = 15000 if extract else 50000
+    return {"content": text[:limit], "url": url, "status_code": response.status_code, "extraction": "raw"}
 
 
 def _handle_apply_patch(input_data):
@@ -912,3 +995,51 @@ def _handle_browser_type_ref(input_data):
 def _handle_browser_vision(input_data):
     from .browser import get_browser_manager
     return get_browser_manager().screenshot(return_base64=True)
+
+
+def _handle_tool_search(input_data):
+    import json as _json
+    query = input_data["query"].lower()
+    matches = []
+    for t in TOOL_DEFINITIONS:
+        name = t["name"].lower()
+        desc = t["description"].lower()
+        if query in name or query in desc:
+            matches.append({
+                "name": t["name"],
+                "description": t["description"],
+                "input_schema": t["input_schema"],
+            })
+    if not matches:
+        words = query.split()
+        for t in TOOL_DEFINITIONS:
+            name = t["name"].lower()
+            desc = t["description"].lower()
+            if any(w in name or w in desc for w in words):
+                matches.append({
+                    "name": t["name"],
+                    "description": t["description"],
+                    "input_schema": t["input_schema"],
+                })
+    return {"matches": matches, "count": len(matches)}
+
+
+def _handle_code_execution(input_data):
+    from .sandbox import execute_code
+    code = input_data["code"]
+    sandbox_tools = {
+        "read_file": _handle_read_file,
+        "write_file": _handle_write_file,
+        "list_files": _handle_list_files,
+        "run_command": _handle_run_command,
+        "search_files": _handle_search_files,
+        "edit_file": _handle_edit_file,
+        "web_fetch": _handle_web_fetch,
+        "apply_patch": _handle_apply_patch,
+        "web_search": _handle_web_search,
+        "tree": _handle_tree,
+        "file_info": _handle_file_info,
+        "memory_save": _handle_memory_save,
+        "memory_read": _handle_memory_read,
+    }
+    return execute_code(code, sandbox_tools)

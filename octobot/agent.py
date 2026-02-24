@@ -6,7 +6,7 @@ from rich.panel import Panel
 from rich.syntax import Syntax
 
 from .config import get_api_key, get_model, SYNTHETIC_BASE_URL, MAX_TOKENS, MAX_TURNS
-from .tools import get_tool_definitions, execute_tool
+from .tools import get_tool_definitions, execute_tool, get_deferred_tool_summary
 from .identity import load_identity
 from .skills import SkillsManager
 from .memory import load_memory_context
@@ -39,6 +39,15 @@ class Agent:
         skills_ctx = self.skills_manager.get_skills_context()
         if skills_ctx:
             parts.append("\n\n" + skills_ctx)
+
+        deferred_summary = get_deferred_tool_summary()
+        if deferred_summary:
+            parts.append(
+                "\n\n## Additional Tools (use tool_search to see full parameters)\n\n"
+                "The following tools are available but their schemas are deferred to save tokens. "
+                "You can call them directly if you know the parameters, or use `tool_search` to load their full schemas.\n\n"
+                + deferred_summary
+            )
 
         return "\n".join(parts)
 

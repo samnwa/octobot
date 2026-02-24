@@ -23,7 +23,8 @@ A locally-runnable, super-efficient AI tool-calling agent. Inspired by [Octofrie
 
 ## Features
 
-- **23 Built-in Tools** -- file ops, shell, web, browser automation, subagents, memory, and more
+- **25 Built-in Tools** -- file ops, shell, web, browser automation, subagents, memory, and more
+- **Efficiency Optimizations** -- deferred tool loading, code execution sandbox, smart web extraction, and input examples (inspired by Anthropic's advanced tool calling)
 - **Browser Automation + Vision** -- Playwright-powered headless browser with accessibility snapshots, ref-based targeting (like OpenClaw), and vision support for seeing pages
 - **Subagents** -- delegate subtasks to independent child agents that run with their own conversation
 - **Approval Workflows** -- dangerous operations (rm -rf, sudo, writing to dotfiles) require your confirmation
@@ -122,7 +123,7 @@ python main.py -m "hf:meta-llama/Llama-3.3-70B-Instruct"
 | Tool | Description |
 |------|-------------|
 | `run_command` | Execute shell commands with timeout control |
-| `web_fetch` | HTTP GET a URL and extract plain text content |
+| `web_fetch` | HTTP GET with smart content extraction (trafilatura) |
 | `web_search` | Search the web via DuckDuckGo |
 
 ### Browser Automation
@@ -144,6 +145,12 @@ python main.py -m "hf:meta-llama/Llama-3.3-70B-Instruct"
 | `memory_save` | Save information to persistent memory |
 | `memory_read` | Read persistent memory from previous sessions |
 | `spawn_subagent` | Delegate a subtask to an independent child agent |
+
+### Efficiency Meta-Tools
+| Tool | Description |
+|------|-------------|
+| `tool_search` | Discover tools by name/description; loads full schemas on demand |
+| `code_execution` | Python sandbox that chains multiple tool calls in one round trip |
 
 ## Approval Workflows
 
@@ -239,6 +246,43 @@ This tells Playwright to use your real Chrome profile with all your cookies and 
 
 Playwright works on Windows, macOS, and Linux. Just run `playwright install chromium` to download the browser for your OS.
 
+## Efficiency Optimizations
+
+Octobot implements four techniques inspired by Anthropic's advanced tool calling, done on our end for maximum compatibility:
+
+### 1. Deferred Tool Loading
+
+With 25 tools, sending every schema on every API call wastes tokens. Octobot splits tools into two tiers:
+
+- **Always-loaded** (12 tools): Browser tools, subagents, meta-tools -- full schemas always sent
+- **Deferred** (13 tools): File ops, shell, web, memory -- listed as compact name + one-line description in the system prompt
+
+The model can still call deferred tools directly if it knows the parameters. When it doesn't, it uses `tool_search` to load the full schema on demand. This saves significant tokens per request.
+
+### 2. Code Execution Sandbox
+
+Instead of the model making one tool call per turn (call tool, wait for result, call next tool, wait again), the `code_execution` tool lets it write Python code that chains multiple tools in a single round trip:
+
+```python
+files = list_files(path="src/")["files"]
+for f in files:
+    if f.endswith(".py"):
+        info = file_info(path=f)
+        print(f"{f}: {info['size_bytes']} bytes")
+```
+
+This runs in a sandboxed environment with dangerous builtins blocked (`__import__`, `eval`, `exec`, `open`). Only tool functions and safe builtins are available. Has a 30-second timeout.
+
+### 3. Smart Web Extraction
+
+The `web_fetch` tool uses [trafilatura](https://github.com/adbar/trafilatura) to extract just the main content from web pages, stripping navigation, footers, ads, and boilerplate. This typically reduces content from 50,000+ characters to under 15,000 characters of focused text.
+
+Set `extract: false` to get raw stripped HTML when you need the full page.
+
+### 4. Input Examples
+
+Tool definitions include `input_examples` that are embedded into descriptions sent to the model. This helps the model understand correct parameter formats without trial and error, reducing failed tool calls.
+
 ## Persistent Memory
 
 Octobot can remember things across sessions. When it saves information using `memory_save`, it's written to `~/.octobot/memory/MEMORY.md`. This memory is loaded into the system prompt on every startup.
@@ -290,7 +334,7 @@ main.py                  Entry point
 octobot/
   __init__.py            Package init
   config.py              Configuration (API key, model, base URL, constants)
-  tools.py               23 tool definitions and execution handlers
+  tools.py               25 tool definitions and execution handlers
   agent.py               Core agent runtime with loop detection + approval
   cli.py                 Interactive CLI with Rich formatting
   memory.py              Persistent memory loading
@@ -299,16 +343,17 @@ octobot/
   approval.py            Approval workflows for dangerous operations
   subagent.py            Subagent spawning and management
   browser.py             Playwright browser automation with auto lib discovery
+  sandbox.py             Sandboxed Python code execution for multi-tool chaining
 ```
 
 ### How It Works
 
 1. You type a message at the prompt
 2. Octobot assembles a system prompt from: identity + memory + skills
-3. It sends your message + all 23 tool definitions to the model (via Synthetic API)
+3. It sends your message + active tool schemas (12 always-loaded) to the model, with deferred tools listed compactly in the system prompt
 4. The model responds with text, thinking, and/or tool calls
 5. Dangerous operations are checked against approval rules -- you confirm or decline
-6. Octobot executes tool calls locally and sends results back
+6. Octobot executes tool calls locally and sends results back (code_execution runs multiple tools in one trip)
 7. Loop detection monitors for repetitive patterns
 8. This continues until the model has a final answer (up to 50 turns)
 

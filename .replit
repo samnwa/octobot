@@ -2,7 +2,7 @@ modules = ["python-3.11"]
 
 [nix]
 channel = "stable-25_05"
-packages = ["gitFull", "playwright-driver", "nss", "nspr", "at-spi2-atk", "cups", "libdrm", "mesa", "alsa-lib", "pango", "cairo", "xorg.libX11", "xorg.libXcomposite", "xorg.libXdamage", "xorg.libXext", "xorg.libXfixes", "xorg.libXrandr", "xorg.libxcb", "expat", "dbus", "glib", "gtk3", "libxkbcommon"]
+packages = ["alsa-lib", "at-spi2-atk", "cairo", "cups", "dbus", "expat", "gitFull", "glib", "gtk3", "libdrm", "libxkbcommon", "mesa", "nspr", "nss", "pango", "playwright-driver", "xorg.libX11", "xorg.libXcomposite", "xorg.libXdamage", "xorg.libXext", "xorg.libXfixes", "xorg.libXrandr", "xorg.libxcb"]
 
 [agent]
 integrations = ["python_anthropic:1.0.0"]
