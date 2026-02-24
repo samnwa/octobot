@@ -1,6 +1,4 @@
-def main():
-    print("Hello from repl-nix-workspace!")
-
+from octobot.cli import main
 
 if __name__ == "__main__":
     main()

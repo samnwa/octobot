@@ -1,10 +1,13 @@
 [project]
-name = "repl-nix-workspace"
+name = "octobot"
 version = "0.1.0"
-description = "Add your description here"
+description = "Locally-runnable, super efficient AI tool-calling agent"
 requires-python = ">=3.11"
 dependencies = [
     "anthropic>=0.83.0",
-    "click>=8.3.1",
-    "rich>=14.3.3",
+    "click>=8.1.0",
+    "rich>=13.0.0",
 ]
+
+[project.scripts]
+octobot = "octobot.cli:main"
