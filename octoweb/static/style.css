@@ -10,13 +10,13 @@
     --bg-tertiary: #1c2333;
     --text-primary: #e6edf3;
     --text-secondary: #8b949e;
-    --accent-cyan: #00d4aa;
-    --accent-cyan-dim: #00d4aa33;
+    --accent-cyan: #00ffff;
+    --accent-cyan-dim: #00ffff22;
     --accent-yellow: #d29922;
     --accent-yellow-dim: #d2992233;
     --accent-red: #f85149;
     --border-color: #30363d;
-    --user-bg: #1a3a4a;
+    --user-bg: #0a2a3a;
     --assistant-bg: #161b22;
 }
 
@@ -50,14 +50,6 @@ header {
     display: flex;
     align-items: center;
     gap: 16px;
-}
-
-.octopus-header {
-    font-size: 9px;
-    line-height: 1.2;
-    color: var(--accent-cyan);
-    font-family: monospace;
-    white-space: pre;
 }
 
 .header-info h1 {
@@ -354,10 +346,6 @@ main::-webkit-scrollbar-thumb {
 }
 
 @media (max-width: 600px) {
-    .octopus-header {
-        display: none;
-    }
-
     .message-user .message-bubble,
     .message-assistant .message-bubble {
         max-width: 90%;
