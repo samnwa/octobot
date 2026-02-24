@@ -1,0 +1,26 @@
+The video details how to implement Anthropic's new advanced tool calling updates to improve efficiency and reduce token consumption:
+
+Programmatic Tool Calling (4:10 - 8:07)
+The main idea is to allow the large language model (LLM) to output code to run multiple functions, handling the passing of results from one function to another using loops or conditional logic.
+
+To enable this, you need to include a code_execution function in your LLM response (6:23). This function acts as a sandbox for the agent to write and execute code.
+For each tool you pass to the LLM, you must add a new parameter called allowed_caller. You then pass code_execution_2026_01_20 as one of the callers for that tool (6:34 - 6:42).
+Once enabled, the LLM will return a piece of code. You can then filter out tool_use and caller from this response to perform the actual queries or actions (7:02 - 7:19).
+After the actions are complete, send back all past conversation history with a new user message containing the tool response (7:21 - 7:25). The LLM will then use this new result to continue executing the code.
+Dynamic Filtering for Web Fetch (9:10 - 10:13)
+This feature addresses the issue of the web_fetch tool dumping a large, often irrelevant, HTML page into the LLM's context window.
+
+To activate dynamic filtering, you need to point your agent to the special version of the web_fetch tool: 2026209 (9:54 - 10:00).
+Once activated, the API response will automatically show a code_execution step in the middle to extract only specific relevant keys, returning only the filtered content to the LLM (10:02 - 10:12).
+Tool Search (10:13 - 12:15)
+This concept aims to prevent loading hundreds of tool schemas into the LLM's context window, which is inefficient.
+
+You can give your LLM call a tool_search tool (11:16 - 11:19).
+For each tool/MCP, you can set a deferred_loading data parameter to true (11:21 - 11:26). When this is true, the tool won't be visible to the agent by default.
+Instead, the LLM will use the tool_search tool to dynamically retrieve the necessary information (11:30 - 11:33).
+The video also mentions that on the MCP server, you can set a default config for defer_loading to true to hide all tools by default, but then specify individual actions (e.g., search_events) to have deferred_loading set to false so they are always visible (11:46 - 12:06).
+Tool Use Examples (12:15 - 13:39)
+This helps the LLM understand how to use complex tools, especially when schema descriptions aren't enough to clarify parameter formats or inter-field correlations.
+
+When defining a tool, you can pass in an array of input_examples (13:03 - 13:09).
+These examples serve as a guide for the agent on how the tool should be called, which is particularly useful for complex nested structures or tools with many optional parameters where the LLM might forget to fill certain ones (13:16 - 13:29).
