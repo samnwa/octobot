@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Octobot</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.0/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+</head>
+<body>
+    <div id="app">
+        <header>
+            <div class="header-left">
+                <pre class="octopus-header">     ___
+    /o o\
+   ( =^= )
+ ~~~\___/~~~
+  ~/~ ~/~ ~/~</pre>
+                <div class="header-info">
+                    <h1>OCTOBOT</h1>
+                    <span class="header-meta">{{ model }} &middot; {{ tool_count }} tools</span>
+                </div>
+            </div>
+            <div class="header-actions">
+                <button id="reset-btn" title="Reset conversation">Reset</button>
+                <span id="token-display" class="token-display"></span>
+            </div>
+        </header>
+
+        <main id="messages">
+            <div class="welcome-message">
+                <p>Ask me anything. I can read and write files, run commands, search the web, automate browsers, and more.</p>
+            </div>
+        </main>
+
+        <div id="swimming-octopus" class="swimming-octopus hidden">
+            <pre class="swimmer">     ___
+    /o o\
+   ( =^= )
+ ~~~\___/~~~</pre>
+        </div>
+
+        <footer>
+            <form id="chat-form">
+                <input type="text" id="message-input" placeholder="Type your message..." autocomplete="off" autofocus>
+                <button type="submit" id="send-btn">Send</button>
+            </form>
+        </footer>
+    </div>
+    <script src="/static/app.js"></script>
+</body>
+</html>

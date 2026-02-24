@@ -83,24 +83,32 @@ playwright install chromium
 
 ## Usage
 
-### Interactive Mode
+### Web UI (Default)
 
 ```bash
 python main.py
 ```
 
-Type your request at the `>` prompt. Octobot will use its tools to read files, write code, run commands, browse the web, and more.
+Opens a chat interface in your browser at `http://localhost:5000`. Dark theme, markdown rendering, collapsible tool panels, and a swimming octopus loading animation.
 
-### Single Prompt
+### Terminal CLI
 
 ```bash
-python main.py -s "List all Python files in this project"
+python main.py --cli
 ```
 
-### Choose a Model
+Type your request at the `>` prompt. Octobot will use its tools to read files, write code, run commands, browse the web, and more.
+
+### Single Prompt (CLI)
 
 ```bash
-python main.py -m "hf:meta-llama/Llama-3.3-70B-Instruct"
+python main.py --cli -s "List all Python files in this project"
+```
+
+### Choose a Model (CLI)
+
+```bash
+python main.py --cli -m "hf:meta-llama/Llama-3.3-70B-Instruct"
 ```
 
 ## CLI Commands

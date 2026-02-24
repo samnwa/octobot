@@ -5,7 +5,7 @@ Locally-runnable, super-efficient AI tool-calling agent using the Synthetic API 
 ## Architecture
 
 ```
-main.py                  - Entry point
+main.py                  - Entry point (web UI by default, --cli for terminal)
 octobot/
   __init__.py            - Package init
   config.py              - Configuration (API key, model, base URL, constants)
@@ -20,12 +20,19 @@ octobot/
   browser.py             - Playwright browser automation with NixOS library auto-discovery
   sandbox.py             - AST-validated Python sandbox for multi-tool chaining
   octopus.py             - Swimming octopus animation (loading indicator during API calls)
+octoweb/
+  __init__.py            - Package init
+  app.py                 - Flask web server, SSE streaming, WebAgent chat logic
+  templates/index.html   - Chat UI template
+  static/style.css       - Dark theme styling, octopus CSS animation
+  static/app.js          - Frontend JS (SSE handling, markdown rendering, tool panels)
 README.md                - Comprehensive project documentation
 ```
 
 ## Key Features
 
 - **25 Tools**: file ops (read/write/edit/list/search/tree/file_info/apply_patch), shell (run_command), web (web_fetch with trafilatura, web_search), memory (save/read), subagent (spawn_subagent), browser (navigate/screenshot/click/type/get_text/snapshot/click_ref/type_ref/vision), meta-tools (tool_search, code_execution)
+- **Two Interfaces**: Web UI (Flask on port 5000) and terminal CLI
 - **Efficiency Optimizations** (inspired by Anthropic's advanced tool calling):
   - Deferred tool loading: 13 tools deferred, 12 always loaded; saves tokens per request
   - Code execution sandbox: chain multiple tool calls in one round trip via Python code
@@ -36,7 +43,6 @@ README.md                - Comprehensive project documentation
   - Path restrictions (writes confined to project dir + /tmp, system paths blocked)
   - Approval workflows (dangerous commands and sensitive file writes require user confirmation)
   - Prompt injection defense (untrusted content tagged with delimiters, injection patterns detected)
-  - System prompt instructs model to never follow instructions in <untrusted_content> tags
 - **Browser Automation**: Playwright headless Chromium, accessibility snapshots with numbered refs, ref-based clicking/typing, vision (base64 screenshots sent as image blocks)
 - **Subagents**: Independent child agents for subtask delegation, 15 turn limit, no recursive spawning
 - **Persistent Memory**: ~/.octobot/memory/MEMORY.md loaded into system prompt
@@ -53,7 +59,8 @@ README.md                - Comprehensive project documentation
 
 ## Dependencies
 
-- anthropic (SDK for API calls)
+- anthropic (SDK for API calls — Synthetic API is Anthropic-compatible)
+- flask (web UI server)
 - rich (terminal formatting)
 - click (CLI framework)
 - httpx (HTTP client for web_fetch/web_search)
@@ -68,7 +75,8 @@ README.md                - Comprehensive project documentation
 ## Running
 
 ```bash
-python main.py                          # Interactive mode
-python main.py -s "your prompt"         # Single prompt mode
-python main.py -m "hf:model/name"       # Use a different model
+python main.py                          # Web UI (default, port 5000)
+python main.py --cli                    # Terminal CLI
+python main.py --cli -s "your prompt"   # Single prompt mode
+python main.py --cli -m "hf:model/name" # Use a different model
 ```

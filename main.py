@@ -4,6 +4,7 @@ import subprocess
 REQUIRED_PACKAGES = {
     "anthropic": "anthropic",
     "click": "click",
+    "flask": "flask",
     "httpx": "httpx",
     "playwright": "playwright",
     "rich": "rich",
@@ -65,5 +66,9 @@ if __name__ == "__main__":
     if not check_dependencies():
         sys.exit(1)
 
-    from octobot.cli import main
-    main()
+    if "--cli" in sys.argv:
+        from octobot.cli import main
+        main()
+    else:
+        from octoweb.app import run_web
+        run_web()
