@@ -19,6 +19,7 @@ octobot/
   subagent.py            - Subagent spawning with isolated conversations (15 turn limit)
   browser.py             - Playwright browser automation with NixOS library auto-discovery
   sandbox.py             - AST-validated Python sandbox for multi-tool chaining
+  octopus.py             - Swimming octopus animation (loading indicator during API calls)
 README.md                - Comprehensive project documentation
 ```
 

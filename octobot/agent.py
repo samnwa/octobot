@@ -12,6 +12,7 @@ from .identity import load_identity
 from .skills import SkillsManager
 from .memory import load_memory_context
 from .approval import check_approval, prompt_approval
+from .octopus import start_swimming, stop_swimming
 
 console = Console()
 
@@ -249,13 +250,17 @@ class Agent:
 
         for turn in range(MAX_TURNS):
             try:
-                response = self.client.messages.create(
-                    model=self.model,
-                    max_tokens=MAX_TOKENS,
-                    system=self._build_system_prompt(),
-                    tools=self._build_tools(),
-                    messages=self.messages,
-                )
+                start_swimming()
+                try:
+                    response = self.client.messages.create(
+                        model=self.model,
+                        max_tokens=MAX_TOKENS,
+                        system=self._build_system_prompt(),
+                        tools=self._build_tools(),
+                        messages=self.messages,
+                    )
+                finally:
+                    stop_swimming()
             except Exception as e:
                 console.print(f"[bold red]API Error:[/bold red] {e}")
                 return

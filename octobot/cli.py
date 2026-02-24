@@ -9,6 +9,7 @@ from .agent import Agent
 from .config import DEFAULT_MODEL
 from .tools import TOOL_DEFINITIONS
 from .browser import close_browser
+from .octopus import is_awake, set_awake, OCTOPUS_FULL
 
 console = Console()
 
@@ -43,7 +44,7 @@ def print_banner(model):
     info.append("  |  ", style="dim")
     info.append(f"{len(TOOL_DEFINITIONS)} tools", style="dim cyan")
     console.print(info)
-    console.print("[dim]  Commands: /tools /skills /reset /model /tokens /help /quit[/dim]\n")
+    console.print("[dim]  Commands: /tools /skills /reset /model /tokens /octo /help /quit[/dim]\n")
 
 
 def print_help():
@@ -55,6 +56,7 @@ def print_help():
   [cyan]/reset[/cyan]           Clear conversation history
   [cyan]/model[/cyan] [name]    Show or switch the current model
   [cyan]/tokens[/cyan]          Show token usage for this session
+  [cyan]/octo[/cyan]            Toggle the swimming octopus animation
   [cyan]/help[/cyan]            Show this help message
   [cyan]/quit[/cyan]            Exit octobot
 
@@ -158,6 +160,16 @@ def main(model, single):
                 continue
             elif cmd == "/skills":
                 print_skills(agent)
+                continue
+            elif cmd == "/octo":
+                if is_awake():
+                    set_awake(False)
+                    console.print(OCTOPUS_FULL, style="dim")
+                    console.print("[dim]Octobot is sleeping... zzz[/dim]\n")
+                else:
+                    set_awake(True)
+                    console.print(OCTOPUS_FULL, style="bold cyan")
+                    console.print("[bold cyan]Octobot is awake![/bold cyan]\n")
                 continue
             elif cmd == "/help":
                 print_help()
