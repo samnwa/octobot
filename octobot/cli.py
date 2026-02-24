@@ -29,7 +29,7 @@ OCTOBOT_BOT = """\u2580\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2
 
 
 def print_banner(model):
-    console.print(OCTOBOT_TOP, style="bold blue")
+    console.print(OCTOBOT_TOP, style="bold cyan")
     console.print(OCTOBOT_BOT, style="white")
     console.print()
     info = Text()
