@@ -10,6 +10,7 @@ from .tools import get_tool_definitions, execute_tool
 from .identity import load_identity
 from .skills import SkillsManager
 from .memory import load_memory_context
+from .approval import check_approval, prompt_approval
 
 console = Console()
 
@@ -137,6 +138,18 @@ class Agent:
                     continue
 
                 self._display_tool_use(block)
+
+                needs_approval, reason = check_approval(block.name, block.input)
+                if needs_approval:
+                    approved = prompt_approval(block.name, block.input, reason)
+                    if not approved:
+                        tool_results.append({
+                            "type": "tool_result",
+                            "tool_use_id": block.id,
+                            "content": json.dumps({"error": "User declined this operation. Try a different approach or ask the user for guidance."}),
+                        })
+                        continue
+
                 result = execute_tool(block.name, block.input)
                 self._display_tool_result(block.name, result)
                 result_str = json.dumps(result)

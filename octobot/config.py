@@ -7,6 +7,7 @@ DEFAULT_MODEL = "hf:zai-org/GLM-4.7"
 SYNTHETIC_BASE_URL = "https://api.synthetic.new/anthropic"
 MAX_TOKENS = 16384
 MAX_TURNS = 50
+SUBAGENT_MAX_TURNS = 15
 
 CONFIG_DIR = Path.home() / ".octobot"
 CONFIG_FILE = CONFIG_DIR / "config.json"

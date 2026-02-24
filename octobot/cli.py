@@ -8,6 +8,7 @@ from rich.table import Table
 from .agent import Agent
 from .config import DEFAULT_MODEL
 from .tools import TOOL_DEFINITIONS
+from .browser import close_browser
 
 console = Console()
 
@@ -61,8 +62,10 @@ def print_help():
 
   Just type your request and press Enter.
   Octobot can read, write, edit, and search files,
-  run shell commands, fetch web pages, and search the web.
+  run shell commands, fetch web pages, search the web,
+  automate browsers, and spawn subagents for subtasks.
   It remembers things across sessions via persistent memory.
+  Dangerous operations require your approval before executing.
 """
     console.print(help_text)
 
@@ -109,6 +112,7 @@ def main(model, single):
 
     if single:
         agent.chat(single)
+        close_browser()
         return
 
     while True:
@@ -116,6 +120,7 @@ def main(model, single):
             console.print("[bold cyan]>[/bold cyan] ", end="")
             user_input = input().strip()
         except (KeyboardInterrupt, EOFError):
+            close_browser()
             console.print("\n[dim]Goodbye![/dim]")
             break
 
@@ -125,10 +130,12 @@ def main(model, single):
         if user_input.startswith("/"):
             cmd = user_input.lower().split()[0]
             if cmd in ("/quit", "/exit", "/q"):
+                close_browser()
                 console.print("[dim]Goodbye![/dim]")
                 break
             elif cmd == "/reset":
                 agent.reset()
+                close_browser()
                 console.print("[green]Conversation reset.[/green]\n")
                 continue
             elif cmd == "/model":

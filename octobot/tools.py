@@ -316,6 +316,109 @@ TOOL_DEFINITIONS = [
             {}
         ],
         "deferred_loading": True
+    },
+    {
+        "name": "spawn_subagent",
+        "description": "Spawn a subagent to handle a specific task independently. The subagent has access to all file, shell, and web tools but runs with its own conversation. Use for parallelizable or isolatable subtasks.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "task": {
+                    "type": "string",
+                    "description": "Clear description of the task for the subagent to complete"
+                },
+                "context": {
+                    "type": "string",
+                    "description": "Optional additional context to help the subagent (e.g., relevant file paths, background info)"
+                },
+                "max_turns": {
+                    "type": "integer",
+                    "description": "Maximum number of tool-calling turns. Default 15."
+                }
+            },
+            "required": ["task"]
+        }
+    },
+    {
+        "name": "browser_navigate",
+        "description": "Navigate to a URL in a headless browser. Returns the page title and visible text content. The browser persists across calls so you can interact with the page after navigating.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "string",
+                    "description": "The URL to navigate to"
+                },
+                "timeout": {
+                    "type": "integer",
+                    "description": "Navigation timeout in milliseconds. Default 30000."
+                }
+            },
+            "required": ["url"]
+        }
+    },
+    {
+        "name": "browser_screenshot",
+        "description": "Take a screenshot of the current browser page. Returns the file path to the saved PNG image.",
+        "input_schema": {
+            "type": "object",
+            "properties": {},
+            "required": []
+        }
+    },
+    {
+        "name": "browser_click",
+        "description": "Click an element on the current browser page using a CSS selector.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "selector": {
+                    "type": "string",
+                    "description": "CSS selector of the element to click (e.g., 'button.submit', '#login-btn', 'a[href=\"/about\"]')"
+                },
+                "timeout": {
+                    "type": "integer",
+                    "description": "Timeout in milliseconds to wait for element. Default 5000."
+                }
+            },
+            "required": ["selector"]
+        }
+    },
+    {
+        "name": "browser_type",
+        "description": "Type text into an input field on the current browser page using a CSS selector.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "selector": {
+                    "type": "string",
+                    "description": "CSS selector of the input element (e.g., 'input[name=\"email\"]', '#search-box')"
+                },
+                "text": {
+                    "type": "string",
+                    "description": "The text to type into the field"
+                },
+                "timeout": {
+                    "type": "integer",
+                    "description": "Timeout in milliseconds to wait for element. Default 5000."
+                }
+            },
+            "required": ["selector", "text"]
+        }
+    },
+    {
+        "name": "browser_get_text",
+        "description": "Get the text content of the current browser page or a specific element. Useful for reading rendered page content after navigation or interaction.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "selector": {
+                    "type": "string",
+                    "description": "Optional CSS selector to get text from a specific element. If omitted, returns full page body text."
+                }
+            },
+            "required": []
+        }
     }
 ]
 
@@ -351,6 +454,12 @@ def execute_tool(name, input_data):
         "file_info": _handle_file_info,
         "memory_save": _handle_memory_save,
         "memory_read": _handle_memory_read,
+        "spawn_subagent": _handle_spawn_subagent,
+        "browser_navigate": _handle_browser_navigate,
+        "browser_screenshot": _handle_browser_screenshot,
+        "browser_click": _handle_browser_click,
+        "browser_type": _handle_browser_type,
+        "browser_get_text": _handle_browser_get_text,
     }
     handler = handlers.get(name)
     if not handler:
@@ -675,3 +784,44 @@ def _handle_memory_read(input_data):
     with open(MEMORY_PATH, "r") as f:
         content = f.read()
     return {"content": content, "path": str(MEMORY_PATH)}
+
+
+def _handle_spawn_subagent(input_data):
+    from .subagent import run_subagent
+    task = input_data["task"]
+    context = input_data.get("context")
+    max_turns = input_data.get("max_turns")
+    return run_subagent(task=task, context=context, max_turns=max_turns)
+
+
+def _handle_browser_navigate(input_data):
+    from .browser import get_browser_manager
+    url = input_data["url"]
+    timeout = input_data.get("timeout", 30000)
+    return get_browser_manager().navigate(url, timeout=timeout)
+
+
+def _handle_browser_screenshot(input_data):
+    from .browser import get_browser_manager
+    return get_browser_manager().screenshot()
+
+
+def _handle_browser_click(input_data):
+    from .browser import get_browser_manager
+    selector = input_data["selector"]
+    timeout = input_data.get("timeout", 5000)
+    return get_browser_manager().click(selector, timeout=timeout)
+
+
+def _handle_browser_type(input_data):
+    from .browser import get_browser_manager
+    selector = input_data["selector"]
+    text = input_data["text"]
+    timeout = input_data.get("timeout", 5000)
+    return get_browser_manager().type_text(selector, text, timeout=timeout)
+
+
+def _handle_browser_get_text(input_data):
+    from .browser import get_browser_manager
+    selector = input_data.get("selector")
+    return get_browser_manager().get_text(selector=selector)
