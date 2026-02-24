@@ -57,18 +57,29 @@ Or store it in `~/.octobot/config.json`:
 }
 ```
 
-### 3. Install Dependencies
-
-```bash
-pip install anthropic rich click httpx playwright
-playwright install chromium
-```
-
-### 4. Run
+### 3. Run
 
 ```bash
 python main.py
 ```
+
+On first run, octobot detects missing dependencies and offers to install them automatically. Just hit Enter to confirm.
+
+If you prefer to install manually:
+
+```bash
+pip install .                        # installs from pyproject.toml
+playwright install chromium          # downloads the browser for browser tools
+```
+
+Or with requirements.txt:
+
+```bash
+pip install -r requirements.txt
+playwright install chromium
+```
+
+> **Why `anthropic`?** The Synthetic API is Anthropic-compatible — it uses the same message format and tool-calling protocol. The `anthropic` Python SDK handles all the API communication so we don't reinvent the wheel.
 
 ## Usage
 
