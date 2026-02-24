@@ -9,15 +9,52 @@ from .config import DEFAULT_MODEL
 
 console = Console()
 
+OCTOBOT_ASCII = r"""
+[bold blue]  ___   ____ _____ ___  ____   ___ _____[/bold blue]
+[bold blue] / _ \ / ___|_   _/ _ \| __ ) / _ \_   _|[/bold blue]
+[bold blue]| | | | |     | || | | |  _ \| | | || |[/bold blue]
+[bold blue]| |_| | |___  | || |_| | |_) | |_| || |[/bold blue]
+[bold blue] \___/ \____| |_| \___/|____/ \___/ |_|[/bold blue]
 
-def print_banner():
-    banner = Text()
-    banner.append("  octobot ", style="bold cyan")
-    banner.append("v0.1.0", style="dim")
-    banner.append(" | ", style="dim")
-    banner.append("Efficient AI Tool-Calling Agent", style="italic")
-    console.print(Panel(banner, border_style="cyan"))
-    console.print("[dim]Commands: /reset /model /tokens /quit[/dim]\n")
+[cyan]        ,---.        [/cyan]
+[cyan]       / o o \       [/cyan]  [bold white]Efficient AI Tool-Calling Agent[/bold white]
+[cyan]      (   >   )      [/cyan]  [dim]Powered by Synthetic API[/dim]
+[cyan]    ~~~\  -  /~~~    [/cyan]
+[cyan]   / /||`---'||\\ \  [/cyan]  [dim cyan]read[/dim cyan] [dim]|[/dim] [dim cyan]write[/dim cyan] [dim]|[/dim] [dim cyan]edit[/dim cyan] [dim]|[/dim] [dim cyan]search[/dim cyan] [dim]|[/dim] [dim cyan]run[/dim cyan]
+[cyan]  / / ||     || \\ \ [/cyan]
+[cyan] `--' ||     || `--' [/cyan]
+[cyan]      ~~     ~~      [/cyan]
+"""
+
+
+def print_banner(model):
+    console.print(OCTOBOT_ASCII)
+    info = Text()
+    info.append("  Model: ", style="dim")
+    info.append(model, style="bold cyan")
+    info.append("  |  ", style="dim")
+    info.append("v0.1.0", style="dim")
+    console.print(info)
+    console.print("[dim]  Commands: /reset /model /tokens /help /quit[/dim]\n")
+
+
+def print_help():
+    help_text = """
+[bold cyan]Available Commands:[/bold cyan]
+
+  [cyan]/reset[/cyan]           Clear conversation history
+  [cyan]/model[/cyan] [name]    Show or switch the current model
+  [cyan]/tokens[/cyan]          Show token usage for this session
+  [cyan]/help[/cyan]            Show this help message
+  [cyan]/quit[/cyan]            Exit octobot
+
+[bold cyan]Tips:[/bold cyan]
+
+  Just type your request and press Enter.
+  Octobot can read, write, edit, and search files,
+  and run shell commands on your behalf.
+"""
+    console.print(help_text)
 
 
 @click.command()
@@ -31,8 +68,7 @@ def main(model, single):
         sys.exit(1)
 
     console.print()
-    print_banner()
-    console.print(f"[dim]Model: {agent.model}[/dim]\n")
+    print_banner(agent.model)
 
     if single:
         agent.chat(single)
@@ -72,6 +108,9 @@ def main(model, single):
                     f"[dim]Session tokens: {agent.total_input_tokens:,} in / "
                     f"{agent.total_output_tokens:,} out[/dim]\n"
                 )
+                continue
+            elif cmd == "/help":
+                print_help()
                 continue
             else:
                 console.print(f"[yellow]Unknown command: {cmd}[/yellow]\n")
