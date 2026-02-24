@@ -3,9 +3,11 @@ import click
 from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
+from rich.table import Table
 
 from .agent import Agent
 from .config import DEFAULT_MODEL
+from .tools import TOOL_DEFINITIONS
 
 console = Console()
 
@@ -37,14 +39,18 @@ def print_banner(model):
     info.append(model, style="bold cyan")
     info.append("  |  ", style="dim")
     info.append("v0.1.0", style="dim")
+    info.append("  |  ", style="dim")
+    info.append(f"{len(TOOL_DEFINITIONS)} tools", style="dim cyan")
     console.print(info)
-    console.print("[dim]  Commands: /reset /model /tokens /help /quit[/dim]\n")
+    console.print("[dim]  Commands: /tools /skills /reset /model /tokens /help /quit[/dim]\n")
 
 
 def print_help():
     help_text = """
 [bold cyan]Available Commands:[/bold cyan]
 
+  [cyan]/tools[/cyan]           List all available tools
+  [cyan]/skills[/cyan]          List loaded skills
   [cyan]/reset[/cyan]           Clear conversation history
   [cyan]/model[/cyan] [name]    Show or switch the current model
   [cyan]/tokens[/cyan]          Show token usage for this session
@@ -55,9 +61,37 @@ def print_help():
 
   Just type your request and press Enter.
   Octobot can read, write, edit, and search files,
-  and run shell commands on your behalf.
+  run shell commands, fetch web pages, and search the web.
+  It remembers things across sessions via persistent memory.
 """
     console.print(help_text)
+
+
+def print_tools():
+    table = Table(title="Available Tools", border_style="cyan")
+    table.add_column("Tool", style="bold cyan", no_wrap=True)
+    table.add_column("Description", style="white")
+    for t in TOOL_DEFINITIONS:
+        desc = t["description"]
+        if len(desc) > 80:
+            desc = desc[:77] + "..."
+        table.add_row(t["name"], desc)
+    console.print(table)
+    console.print()
+
+
+def print_skills(agent):
+    skills = agent.skills_manager.get_skills_metadata()
+    if not skills:
+        console.print("[dim]No skills loaded. Add skills to ~/.octobot/skills/ or ./skills/[/dim]\n")
+        return
+    table = Table(title="Loaded Skills", border_style="cyan")
+    table.add_column("Skill", style="bold cyan", no_wrap=True)
+    table.add_column("Description", style="white")
+    for s in skills:
+        table.add_row(s["name"], s.get("description", ""))
+    console.print(table)
+    console.print()
 
 
 @click.command()
@@ -111,6 +145,12 @@ def main(model, single):
                     f"[dim]Session tokens: {agent.total_input_tokens:,} in / "
                     f"{agent.total_output_tokens:,} out[/dim]\n"
                 )
+                continue
+            elif cmd == "/tools":
+                print_tools()
+                continue
+            elif cmd == "/skills":
+                print_skills(agent)
                 continue
             elif cmd == "/help":
                 print_help()

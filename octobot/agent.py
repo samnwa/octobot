@@ -7,19 +7,11 @@ from rich.syntax import Syntax
 
 from .config import get_api_key, get_model, SYNTHETIC_BASE_URL, MAX_TOKENS, MAX_TURNS
 from .tools import get_tool_definitions, execute_tool
+from .identity import load_identity
+from .skills import SkillsManager
+from .memory import load_memory_context
 
 console = Console()
-
-SYSTEM_PROMPT = """You are octobot, a highly efficient AI coding assistant. You have access to tools for reading, writing, editing, and searching files, as well as running shell commands.
-
-Key principles:
-- Be concise and direct in your responses
-- Use tools efficiently - plan multi-step operations before executing
-- Read files before editing to understand context
-- Use edit_file for surgical changes instead of rewriting entire files
-- Always verify your work after making changes
-- If a task requires multiple steps, plan ahead and execute systematically
-- When listing files or searching, filter early to avoid returning too much data"""
 
 
 class Agent:
@@ -33,6 +25,21 @@ class Agent:
         self.messages = []
         self.total_input_tokens = 0
         self.total_output_tokens = 0
+        self.skills_manager = SkillsManager()
+        self._tool_call_history = []
+
+    def _build_system_prompt(self):
+        parts = [load_identity()]
+
+        memory_ctx = load_memory_context()
+        if memory_ctx:
+            parts.append("\n\n## Memory\n\nThe following is your persistent memory from previous sessions:\n\n" + memory_ctx)
+
+        skills_ctx = self.skills_manager.get_skills_context()
+        if skills_ctx:
+            parts.append("\n\n" + skills_ctx)
+
+        return "\n".join(parts)
 
     def _build_tools(self):
         return get_tool_definitions()
@@ -77,11 +84,37 @@ class Agent:
             )
         )
 
+    def _check_loop(self, tool_name, tool_input):
+        call_key = f"{tool_name}:{json.dumps(tool_input, sort_keys=True)}"
+        self._tool_call_history.append(call_key)
+
+        recent = self._tool_call_history[-6:]
+        if len(recent) >= 3:
+            if recent[-1] == recent[-2] == recent[-3]:
+                console.print(
+                    "[bold red]Loop detected:[/bold red] Same tool call repeated 3 times. Stopping.",
+                )
+                return True
+
+        no_text_calls = 0
+        for entry in reversed(self._tool_call_history):
+            if entry == "__TEXT__":
+                break
+            no_text_calls += 1
+        if no_text_calls >= 8:
+            console.print(
+                "[bold red]Loop detected:[/bold red] 8+ tool calls with no text output. Stopping.",
+            )
+            return True
+
+        return False
+
     def _process_response(self, response):
         self.total_input_tokens += response.usage.input_tokens
         self.total_output_tokens += response.usage.output_tokens
 
         tool_results = []
+        loop_detected = False
 
         for block in response.content:
             block_type = getattr(block, "type", None)
@@ -91,8 +124,18 @@ class Agent:
 
             elif block_type == "text" and block.text.strip():
                 self._display_text(block.text)
+                self._tool_call_history.append("__TEXT__")
 
             elif block_type == "tool_use":
+                if self._check_loop(block.name, block.input):
+                    loop_detected = True
+                    tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": json.dumps({"error": "Loop detected - please try a different approach or respond to the user."}),
+                    })
+                    continue
+
                 self._display_tool_use(block)
                 result = execute_tool(block.name, block.input)
                 self._display_tool_result(block.name, result)
@@ -105,17 +148,18 @@ class Agent:
                     "content": result_str,
                 })
 
-        return tool_results, response.stop_reason
+        return tool_results, response.stop_reason, loop_detected
 
     def chat(self, user_message):
         self.messages.append({"role": "user", "content": user_message})
+        self._tool_call_history = []
 
         for turn in range(MAX_TURNS):
             try:
                 response = self.client.messages.create(
                     model=self.model,
                     max_tokens=MAX_TOKENS,
-                    system=SYSTEM_PROMPT,
+                    system=self._build_system_prompt(),
                     tools=self._build_tools(),
                     messages=self.messages,
                 )
@@ -125,10 +169,14 @@ class Agent:
 
             self.messages.append({"role": "assistant", "content": response.content})
 
-            tool_results, stop_reason = self._process_response(response)
+            tool_results, stop_reason, loop_detected = self._process_response(response)
 
             if stop_reason == "end_turn" or not tool_results:
                 break
+
+            if loop_detected:
+                self.messages.append({"role": "user", "content": tool_results})
+                continue
 
             self.messages.append({"role": "user", "content": tool_results})
 
@@ -145,3 +193,4 @@ class Agent:
         self.messages = []
         self.total_input_tokens = 0
         self.total_output_tokens = 0
+        self._tool_call_history = []
