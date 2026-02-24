@@ -9,26 +9,29 @@ from .config import DEFAULT_MODEL
 
 console = Console()
 
-OCTOBOT_ASCII = r"""
-[bold blue]  ___   ____ _____ ___  ____   ___ _____[/bold blue]
-[bold blue] / _ \ / ___|_   _/ _ \| __ ) / _ \_   _|[/bold blue]
-[bold blue]| | | | |     | || | | |  _ \| | | || |[/bold blue]
-[bold blue]| |_| | |___  | || |_| | |_) | |_| || |[/bold blue]
-[bold blue] \___/ \____| |_| \___/|____/ \___/ |_|[/bold blue]
+OCTOBOT_TOP = """ \u2584\u2588\u2588\u2588\u2588\u2588\u2588\u2584   \u2584\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588     \u2588\u2588\u2588      \u2584\u2588\u2588\u2588\u2588\u2588\u2588\u2584
+\u2588\u2588\u2588    \u2588\u2588\u2588 \u2588\u2588\u2588    \u2588\u2588\u2588 \u2580\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2584 \u2588\u2588\u2588    \u2588\u2588\u2588
+\u2588\u2588\u2588    \u2588\u2588\u2588 \u2588\u2588\u2588    \u2588\u2580     \u2580\u2588\u2588\u2588\u2580\u2580\u2588\u2588 \u2588\u2588\u2588    \u2588\u2588\u2588
+\u2588\u2588\u2588    \u2588\u2588\u2588 \u2588\u2588\u2588            \u2588\u2588\u2588   \u2580 \u2588\u2588\u2588    \u2588\u2588\u2588
+\u2588\u2588\u2588    \u2588\u2588\u2588 \u2588\u2588\u2588            \u2588\u2588\u2588     \u2588\u2588\u2588    \u2588\u2588\u2588
+\u2588\u2588\u2588    \u2588\u2588\u2588 \u2588\u2588\u2588    \u2588\u2584      \u2588\u2588\u2588     \u2588\u2588\u2588    \u2588\u2588\u2588
+\u2588\u2588\u2588    \u2588\u2588\u2588 \u2588\u2588\u2588    \u2588\u2588\u2588     \u2588\u2588\u2588     \u2588\u2588\u2588    \u2588\u2588\u2588
+ \u2580\u2588\u2588\u2588\u2588\u2588\u2588\u2580  \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2580     \u2584\u2588\u2588\u2588\u2588\u2580    \u2580\u2588\u2588\u2588\u2588\u2588\u2588\u2580"""
 
-[cyan]        ,---.        [/cyan]
-[cyan]       / o o \       [/cyan]  [bold white]Efficient AI Tool-Calling Agent[/bold white]
-[cyan]      (   >   )      [/cyan]  [dim]Powered by Synthetic API[/dim]
-[cyan]    ~~~\  -  /~~~    [/cyan]
-[cyan]   / /||`---'||\\ \  [/cyan]  [dim cyan]read[/dim cyan] [dim]|[/dim] [dim cyan]write[/dim cyan] [dim]|[/dim] [dim cyan]edit[/dim cyan] [dim]|[/dim] [dim cyan]search[/dim cyan] [dim]|[/dim] [dim cyan]run[/dim cyan]
-[cyan]  / / ||     || \\ \ [/cyan]
-[cyan] `--' ||     || `--' [/cyan]
-[cyan]      ~~     ~~      [/cyan]
-"""
+OCTOBOT_BOT = """\u2580\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2584   \u2584\u2588\u2588\u2588\u2588\u2588\u2588\u2584      \u2588\u2588\u2588
+  \u2588\u2588\u2588    \u2588\u2588\u2588 \u2588\u2588\u2588    \u2588\u2588\u2588 \u2580\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2584
+  \u2588\u2588\u2588    \u2588\u2588\u2588 \u2588\u2588\u2588    \u2588\u2588\u2588    \u2580\u2588\u2588\u2588\u2580\u2580\u2588\u2588
+ \u2584\u2588\u2588\u2588\u2584\u2584\u2584\u2588\u2588\u2580  \u2588\u2588\u2588    \u2588\u2588\u2588     \u2588\u2588\u2588   \u2580
+\u2580\u2580\u2588\u2588\u2588\u2580\u2580\u2580\u2588\u2588\u2584  \u2588\u2588\u2588    \u2588\u2588\u2588     \u2588\u2588\u2588
+  \u2588\u2588\u2588    \u2588\u2588\u2584 \u2588\u2588\u2588    \u2588\u2588\u2588     \u2588\u2588\u2588
+  \u2588\u2588\u2588    \u2588\u2588\u2588 \u2588\u2588\u2588    \u2588\u2588\u2588     \u2588\u2588\u2588
+\u2584\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2580   \u2580\u2588\u2588\u2588\u2588\u2588\u2588\u2580     \u2584\u2588\u2588\u2588\u2588\u2580"""
 
 
 def print_banner(model):
-    console.print(OCTOBOT_ASCII)
+    console.print(OCTOBOT_TOP, style="bold blue")
+    console.print(OCTOBOT_BOT, style="white")
+    console.print()
     info = Text()
     info.append("  Model: ", style="dim")
     info.append(model, style="bold cyan")
