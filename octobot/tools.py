@@ -419,6 +419,64 @@ TOOL_DEFINITIONS = [
             },
             "required": []
         }
+    },
+    {
+        "name": "browser_snapshot",
+        "description": "Take an accessibility snapshot of the current page. Returns a structured text tree of all interactive elements (buttons, links, inputs, etc.) with numbered refs like [0], [1], [2]. Use these refs with browser_click_ref and browser_type_ref for reliable element targeting. Much more reliable than CSS selectors.",
+        "input_schema": {
+            "type": "object",
+            "properties": {},
+            "required": []
+        }
+    },
+    {
+        "name": "browser_click_ref",
+        "description": "Click an interactive element by its ref number from browser_snapshot. Example: if snapshot shows '[3] button \"Submit\"', use ref=3 to click it. More reliable than CSS selectors.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "ref": {
+                    "type": "integer",
+                    "description": "The ref number from the browser_snapshot output (e.g., 0, 1, 2)"
+                },
+                "timeout": {
+                    "type": "integer",
+                    "description": "Timeout in milliseconds. Default 5000."
+                }
+            },
+            "required": ["ref"]
+        }
+    },
+    {
+        "name": "browser_type_ref",
+        "description": "Type text into an input element by its ref number from browser_snapshot. Example: if snapshot shows '[5] textbox \"Email\"', use ref=5 to type into it. More reliable than CSS selectors.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "ref": {
+                    "type": "integer",
+                    "description": "The ref number from the browser_snapshot output"
+                },
+                "text": {
+                    "type": "string",
+                    "description": "The text to type into the element"
+                },
+                "timeout": {
+                    "type": "integer",
+                    "description": "Timeout in milliseconds. Default 5000."
+                }
+            },
+            "required": ["ref", "text"]
+        }
+    },
+    {
+        "name": "browser_vision",
+        "description": "Take a screenshot and return it as a base64-encoded image that will be sent to the model for visual analysis. Use this when you need to SEE the page layout, verify visual elements, read images/charts, or handle CAPTCHAs. Returns the image inline so you can describe what you see.",
+        "input_schema": {
+            "type": "object",
+            "properties": {},
+            "required": []
+        }
     }
 ]
 
@@ -460,6 +518,10 @@ def execute_tool(name, input_data):
         "browser_click": _handle_browser_click,
         "browser_type": _handle_browser_type,
         "browser_get_text": _handle_browser_get_text,
+        "browser_snapshot": _handle_browser_snapshot,
+        "browser_click_ref": _handle_browser_click_ref,
+        "browser_type_ref": _handle_browser_type_ref,
+        "browser_vision": _handle_browser_vision,
     }
     handler = handlers.get(name)
     if not handler:
@@ -825,3 +887,28 @@ def _handle_browser_get_text(input_data):
     from .browser import get_browser_manager
     selector = input_data.get("selector")
     return get_browser_manager().get_text(selector=selector)
+
+
+def _handle_browser_snapshot(input_data):
+    from .browser import get_browser_manager
+    return get_browser_manager().snapshot()
+
+
+def _handle_browser_click_ref(input_data):
+    from .browser import get_browser_manager
+    ref = input_data["ref"]
+    timeout = input_data.get("timeout", 5000)
+    return get_browser_manager().click_ref(ref, timeout=timeout)
+
+
+def _handle_browser_type_ref(input_data):
+    from .browser import get_browser_manager
+    ref = input_data["ref"]
+    text = input_data["text"]
+    timeout = input_data.get("timeout", 5000)
+    return get_browser_manager().type_ref(ref, text, timeout=timeout)
+
+
+def _handle_browser_vision(input_data):
+    from .browser import get_browser_manager
+    return get_browser_manager().screenshot(return_base64=True)

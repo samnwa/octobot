@@ -1,10 +1,11 @@
 import os
-import glob
+import re
+import base64
 import tempfile
+import subprocess
 from pathlib import Path
 
 _manager = None
-
 
 _lib_paths_set = False
 
@@ -15,7 +16,6 @@ def _setup_library_paths():
         return
     _lib_paths_set = True
 
-    import subprocess
     try:
         chrome_path = None
         for cache_dir in [Path.cwd() / ".cache" / "ms-playwright", Path.home() / ".cache" / "ms-playwright"]:
@@ -93,6 +93,7 @@ class BrowserManager:
         self._playwright = None
         self._browser = None
         self._page = None
+        self._ref_map = {}
 
     def _ensure_browser(self):
         if self._page is not None:
@@ -100,8 +101,25 @@ class BrowserManager:
         _setup_library_paths()
         from playwright.sync_api import sync_playwright
         self._playwright = sync_playwright().start()
-        self._browser = self._playwright.chromium.launch(headless=True)
-        self._page = self._browser.new_page()
+
+        launch_args = {"headless": True}
+
+        from .config import load_config
+        config = load_config()
+        user_data_dir = config.get("browser_profile")
+
+        if user_data_dir:
+            user_data_dir = os.path.expanduser(user_data_dir)
+            context = self._playwright.chromium.launch_persistent_context(
+                user_data_dir,
+                headless=True,
+                no_viewport=False,
+            )
+            self._browser = context
+            self._page = context.pages[0] if context.pages else context.new_page()
+        else:
+            self._browser = self._playwright.chromium.launch(**launch_args)
+            self._page = self._browser.new_page()
 
     def navigate(self, url, timeout=30000):
         self._ensure_browser()
@@ -119,7 +137,7 @@ class BrowserManager:
             "text": text,
         }
 
-    def screenshot(self):
+    def screenshot(self, return_base64=False):
         self._ensure_browser()
         screenshot_dir = Path(tempfile.gettempdir()) / "octobot_screenshots"
         screenshot_dir.mkdir(parents=True, exist_ok=True)
@@ -127,11 +145,126 @@ class BrowserManager:
         idx = len(existing) + 1
         path = screenshot_dir / f"screenshot_{idx}.png"
         self._page.screenshot(path=str(path), full_page=False)
-        return {
+
+        result = {
             "path": str(path),
             "url": self._page.url,
             "title": self._page.title(),
         }
+
+        if return_base64:
+            with open(path, "rb") as f:
+                result["base64"] = base64.b64encode(f.read()).decode("ascii")
+
+        return result
+
+    def snapshot(self):
+        self._ensure_browser()
+        self._ref_map = {}
+
+        raw_snap = self._page.locator("body").aria_snapshot()
+
+        ref_counter = [0]
+        lines = []
+
+        for line in raw_snap.split("\n"):
+            stripped = line.lstrip("- ")
+            indent = len(line) - len(line.lstrip())
+
+            is_interactive = False
+            for keyword in ["button", "link", "textbox", "checkbox", "radio",
+                            "combobox", "menuitem", "tab", "slider", "switch",
+                            "searchbox", "spinbutton", "option"]:
+                if stripped.startswith(keyword):
+                    is_interactive = True
+                    break
+
+            if is_interactive:
+                ref_id = ref_counter[0]
+                ref_counter[0] += 1
+
+                name_match = re.search(r'"([^"]*)"', stripped)
+                role = stripped.split()[0].split('"')[0].rstrip(':') if stripped else "unknown"
+                name = name_match.group(1) if name_match else ""
+
+                url_match = re.search(r'/url:\s*(\S+)', stripped)
+                url = url_match.group(1) if url_match else None
+
+                selector = self._build_selector(role, name, url)
+                self._ref_map[ref_id] = {
+                    "role": role,
+                    "name": name,
+                    "selector": selector,
+                    "url": url,
+                }
+
+                prefix = " " * indent
+                ref_line = f"{prefix}[{ref_id}] {stripped}"
+                lines.append(ref_line)
+            else:
+                lines.append(line)
+
+        snapshot_text = "\n".join(lines)
+        if len(snapshot_text) > 30000:
+            snapshot_text = snapshot_text[:30000] + "\n... [truncated]"
+
+        return {
+            "snapshot": snapshot_text,
+            "ref_count": len(self._ref_map),
+            "url": self._page.url,
+            "title": self._page.title(),
+        }
+
+    def _build_selector(self, role, name, url=None):
+        role_map = {
+            "button": "button",
+            "link": "link",
+            "textbox": "textbox",
+            "checkbox": "checkbox",
+            "radio": "radio",
+            "combobox": "combobox",
+            "menuitem": "menuitem",
+            "tab": "tab",
+            "slider": "slider",
+            "switch": "switch",
+            "searchbox": "searchbox",
+            "spinbutton": "spinbutton",
+            "option": "option",
+        }
+        aria_role = role_map.get(role, role)
+        if name:
+            return f"role={aria_role}[name=\"{name}\"]"
+        return f"role={aria_role}"
+
+    def click_ref(self, ref, timeout=5000):
+        self._ensure_browser()
+        if ref not in self._ref_map:
+            return {"error": f"Ref [{ref}] not found. Take a new snapshot first."}
+        info = self._ref_map[ref]
+        try:
+            self._page.get_by_role(info["role"], name=info["name"]).first.click(timeout=timeout)
+            return {"status": "ok", "ref": ref, "role": info["role"], "name": info["name"]}
+        except Exception:
+            try:
+                self._page.locator(info["selector"]).first.click(timeout=timeout)
+                return {"status": "ok", "ref": ref, "role": info["role"], "name": info["name"]}
+            except Exception as e:
+                return {"error": f"Click ref [{ref}] failed: {str(e)}"}
+
+    def type_ref(self, ref, text, timeout=5000):
+        self._ensure_browser()
+        if ref not in self._ref_map:
+            return {"error": f"Ref [{ref}] not found. Take a new snapshot first."}
+        info = self._ref_map[ref]
+        try:
+            self._page.get_by_role(info["role"], name=info["name"]).first.fill(text, timeout=timeout)
+            return {"status": "ok", "ref": ref, "role": info["role"], "name": info["name"], "text_length": len(text)}
+        except Exception:
+            try:
+                self._page.locator(info["selector"]).first.fill(text, timeout=timeout)
+                return {"status": "ok", "ref": ref, "role": info["role"], "name": info["name"], "text_length": len(text)}
+            except Exception as e:
+                return {"error": f"Type into ref [{ref}] failed: {str(e)}"}
 
     def click(self, selector, timeout=5000):
         self._ensure_browser()
@@ -185,3 +318,4 @@ class BrowserManager:
             except Exception:
                 pass
             self._playwright = None
+        self._ref_map = {}

@@ -23,8 +23,8 @@ A locally-runnable, super-efficient AI tool-calling agent. Inspired by [Octofrie
 
 ## Features
 
-- **19 Built-in Tools** -- file ops, shell, web, browser automation, subagents, memory, and more
-- **Browser Automation** -- Playwright-powered headless browser for navigating, clicking, typing, and screenshotting web pages
+- **23 Built-in Tools** -- file ops, shell, web, browser automation, subagents, memory, and more
+- **Browser Automation + Vision** -- Playwright-powered headless browser with accessibility snapshots, ref-based targeting (like OpenClaw), and vision support for seeing pages
 - **Subagents** -- delegate subtasks to independent child agents that run with their own conversation
 - **Approval Workflows** -- dangerous operations (rm -rf, sudo, writing to dotfiles) require your confirmation
 - **Persistent Memory** -- saves important info to `~/.octobot/memory/MEMORY.md` across sessions
@@ -129,9 +129,13 @@ python main.py -m "hf:meta-llama/Llama-3.3-70B-Instruct"
 | Tool | Description |
 |------|-------------|
 | `browser_navigate` | Navigate to a URL, get page title and text |
-| `browser_screenshot` | Take a screenshot of the current page |
-| `browser_click` | Click an element by CSS selector |
-| `browser_type` | Type text into an input field by CSS selector |
+| `browser_snapshot` | Accessibility tree with numbered refs for reliable targeting |
+| `browser_click_ref` | Click element by ref number from snapshot (preferred) |
+| `browser_type_ref` | Type into element by ref number from snapshot (preferred) |
+| `browser_vision` | Screenshot sent as image to model for visual analysis |
+| `browser_screenshot` | Take a screenshot and save to file |
+| `browser_click` | Click an element by CSS selector (fallback) |
+| `browser_type` | Type text into input by CSS selector (fallback) |
 | `browser_get_text` | Get text content of the page or a specific element |
 
 ### Memory & Agents
@@ -157,7 +161,7 @@ Octobot includes a safety layer that requires your confirmation before executing
 - Force push (`git push --force`)
 - Hard reset (`git reset --hard`)
 
-**Sensitive file writes** (via `write_file`):
+**Sensitive file modifications** (via `write_file`, `edit_file`, `apply_patch`):
 - Shell configs (`.bashrc`, `.zshrc`, `.profile`)
 - SSH keys and GPG data (`.ssh/`, `.gnupg/`)
 - Environment files (`.env`, `.env.production`)
@@ -183,20 +187,51 @@ Octobot can delegate subtasks to independent child agents using the `spawn_subag
 
 ## Browser Automation
 
-Octobot includes a headless Chromium browser powered by Playwright. The browser launches lazily (only when first needed) and persists across tool calls within a session.
+Octobot includes a headless Chromium browser powered by Playwright with two targeting approaches inspired by OpenClaw:
 
-### Capabilities
+### Snapshot + Ref Targeting (Recommended)
 
-- **Navigate** to any URL and read the rendered page content
-- **Screenshot** pages for visual inspection
-- **Click** buttons, links, and other elements by CSS selector
-- **Type** text into form fields
-- **Read text** from specific page elements
+The **hybrid approach** used by OpenClaw. Instead of fragile CSS selectors, the agent takes an accessibility snapshot of the page, which returns a text tree with numbered refs:
+
+```
+- heading "Example Domain" [level=1]
+- paragraph: Welcome to our site
+  [0] link "Sign In"
+  [1] link "Learn More"
+- form:
+  [2] textbox "Email"
+  [3] textbox "Password"
+  [4] button "Submit"
+```
+
+The model reads this as plain text (no vision needed for basic interactions) and acts by ref number: "click ref 4" or "type into ref 2." This is deterministic and reliable.
+
+### Vision Support
+
+For complex visual tasks — verifying layout, reading charts/images, handling CAPTCHAs — the `browser_vision` tool takes a screenshot and sends the actual image to the model as a base64-encoded image block. The model can then describe what it sees and decide next steps.
+
+**Typical workflow:**
+1. `browser_navigate` to go to a page
+2. `browser_snapshot` to see interactive elements as text refs
+3. `browser_type_ref` / `browser_click_ref` to interact by ref number
+4. `browser_vision` if you need to visually verify something
+
+### Browser Profile Persistence
+
+To reuse your existing login sessions, set a browser profile in `~/.octobot/config.json`:
+
+```json
+{
+  "browser_profile": "~/.config/google-chrome/Default"
+}
+```
+
+This tells Playwright to use your real Chrome profile with all your cookies and sessions. Without this, each session starts with a clean browser.
 
 ### How it works
 
 1. On the first browser tool call, Playwright launches a headless Chromium instance
-2. The browser stays open so you can chain interactions (navigate, fill form, click submit, read result)
+2. The browser stays open so you can chain interactions (navigate, snapshot, fill form, click submit, verify)
 3. The browser auto-closes on `/reset`, `/quit`, or exit
 4. On NixOS/Replit, library paths are auto-discovered via `ldd` and `nix-store`
 
@@ -255,7 +290,7 @@ main.py                  Entry point
 octobot/
   __init__.py            Package init
   config.py              Configuration (API key, model, base URL, constants)
-  tools.py               19 tool definitions and execution handlers
+  tools.py               23 tool definitions and execution handlers
   agent.py               Core agent runtime with loop detection + approval
   cli.py                 Interactive CLI with Rich formatting
   memory.py              Persistent memory loading
@@ -270,7 +305,7 @@ octobot/
 
 1. You type a message at the prompt
 2. Octobot assembles a system prompt from: identity + memory + skills
-3. It sends your message + all 19 tool definitions to the model (via Synthetic API)
+3. It sends your message + all 23 tool definitions to the model (via Synthetic API)
 4. The model responds with text, thinking, and/or tool calls
 5. Dangerous operations are checked against approval rules -- you confirm or decline
 6. Octobot executes tool calls locally and sends results back

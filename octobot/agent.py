@@ -152,14 +152,34 @@ class Agent:
 
                 result = execute_tool(block.name, block.input)
                 self._display_tool_result(block.name, result)
-                result_str = json.dumps(result)
-                if len(result_str) > 50000:
-                    result_str = result_str[:50000] + "... [truncated]"
-                tool_results.append({
-                    "type": "tool_result",
-                    "tool_use_id": block.id,
-                    "content": result_str,
-                })
+
+                if block.name == "browser_vision" and "base64" in result:
+                    image_b64 = result.pop("base64")
+                    text_part = json.dumps(result)
+                    tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": [
+                            {"type": "text", "text": text_part},
+                            {
+                                "type": "image",
+                                "source": {
+                                    "type": "base64",
+                                    "media_type": "image/png",
+                                    "data": image_b64,
+                                },
+                            },
+                        ],
+                    })
+                else:
+                    result_str = json.dumps(result)
+                    if len(result_str) > 50000:
+                        result_str = result_str[:50000] + "... [truncated]"
+                    tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": result_str,
+                    })
 
         return tool_results, response.stop_reason, loop_detected
 
