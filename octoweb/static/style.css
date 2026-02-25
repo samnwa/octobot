@@ -254,20 +254,18 @@ main {
 
 .swimming-octopus {
     position: fixed;
-    bottom: 80px;
-    left: -120px;
-    animation: swim 4s linear infinite;
+    bottom: 70px;
+    left: -100px;
+    animation: swim 5s linear infinite;
     pointer-events: none;
     z-index: 10;
 }
 
-.swimming-octopus pre {
-    font-size: 10px;
-    line-height: 1.2;
-    color: var(--accent-cyan);
-    opacity: 0.5;
-    font-family: monospace;
-    white-space: pre;
+.swimmer-svg {
+    width: 80px;
+    height: 67px;
+    opacity: 0.45;
+    filter: drop-shadow(0 0 6px #00ffff44);
 }
 
 .swimming-octopus.hidden {
@@ -275,8 +273,9 @@ main {
 }
 
 @keyframes swim {
-    0% { left: -120px; }
-    100% { left: 110%; }
+    0% { left: -100px; }
+    50% { bottom: 75px; }
+    100% { left: 110%; bottom: 70px; }
 }
 
 footer {
