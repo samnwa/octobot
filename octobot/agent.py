@@ -372,6 +372,7 @@ class Agent:
     def chat(self, user_message):
         self.messages.append({"role": "user", "content": user_message})
         self._tool_call_history = []
+        self.save_history()
 
         for turn in range(MAX_TURNS):
             try:
@@ -382,9 +383,11 @@ class Agent:
                     stop_swimming()
             except Exception as e:
                 console.print(f"[bold red]API Error:[/bold red] All models failed. {e}")
+                self.save_history()
                 return
 
             self.messages.append({"role": "assistant", "content": response.content})
+            self.save_history()
 
             tool_results, stop_reason, loop_detected = self._process_response(response)
 

@@ -355,6 +355,7 @@ def web_chat(agent, user_message, eq):
 
     agent.messages.append({"role": "user", "content": user_message})
     agent._tool_call_history = []
+    agent.save_history()
 
     for turn in range(MAX_TURNS):
         eq.put(("thinking", {"text": "Thinking..."}))
@@ -395,6 +396,7 @@ def web_chat(agent, user_message, eq):
         }))
 
         agent.messages.append({"role": "assistant", "content": response.content})
+        agent.save_history()
 
         tool_results = []
         loop_detected = False
