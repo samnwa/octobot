@@ -22,3 +22,7 @@ venv/
 *.env
 
 outputs/
+
+*.html
+!octoweb/templates/*.html
+!examples/*.html
