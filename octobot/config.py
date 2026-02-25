@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 
 
-DEFAULT_MODEL = "hf:zai-org/GLM-4.7"
+DEFAULT_MODEL = "hf:nvidia/Kimi-K2.5-NVFP4"
 SYNTHETIC_BASE_URL = "https://api.synthetic.new/anthropic"
 MAX_TOKENS = 16384
 MAX_TURNS = 50

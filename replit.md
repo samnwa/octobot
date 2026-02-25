@@ -54,7 +54,7 @@ README.md                - Comprehensive project documentation
 ## Configuration
 
 - **API**: Synthetic API at `https://api.synthetic.new/anthropic`
-- **Model**: `hf:zai-org/GLM-4.7` (default, supports tool use + thinking)
+- **Model**: `hf:nvidia/Kimi-K2.5-NVFP4` (default — fastest, lowest token usage, proper tool_use blocks)
 - **Secret**: `SYNTHETIC_API_KEY` (stored as Replit secret)
 
 ## Dependencies

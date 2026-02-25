@@ -376,12 +376,39 @@ octobot/
 7. Loop detection monitors for repetitive patterns
 8. This continues until the model has a final answer (up to 50 turns)
 
+## Models & Benchmarks
+
+Octobot works with any model available on the Synthetic API. We benchmarked the always-on models for tool calling performance using a simple single-tool-call task (`web_search` for "chocolate chip cookie recipe"):
+
+| Model | Time | Input Tokens | Output Tokens | Proper `tool_use` |
+|-------|------|-------------|---------------|-------------------|
+| **Kimi-K2.5-NVFP4** | **1.5s** | **58** | **49** | Yes |
+| Qwen3.5-397B-A17B | 2.8s | 285 | 66 | Yes |
+| MiniMax-M2.5 | 3.9s | 203 | 93 | Yes |
+| GLM-4.7 | ~3s | 2264 | 41 | No (XML format) |
+| Qwen3-Coder-480B | 0.9s | 287 | 26 | Yes (OpenAI) |
+
+**Kimi-K2.5-NVFP4** is the default — it's the fastest, uses the fewest tokens, and produces proper Anthropic `tool_use` blocks. GLM-4.7 works but returns tool calls as XML text, requiring a custom parser (which octobot handles automatically). Qwen3-Coder is extremely fast via the OpenAI endpoint but isn't available on the Anthropic endpoint.
+
+As we gather more data across different task types (multi-step workflows, code generation, reasoning), we expect to update these recommendations and eventually implement smart routing for maximum performance.
+
+### Smart Routing (Planned)
+
+We plan to implement intelligent model routing that automatically selects the best model for each request, with fallback for reliability:
+
+- **Automatic failover** — if the primary model returns errors or is unavailable, transparently retry with a fallback model
+- **Task-based routing** — route coding tasks to code-specialized models, reasoning tasks to thinking models, simple queries to fast lightweight models
+- **Latency-aware selection** — track response times per model and prefer faster options when quality is comparable
+- **Token budget optimization** — for long conversations approaching context limits, route to models with larger context windows
+
+Switch models anytime with `/model <name>` in the CLI or web UI.
+
 ## Configuration
 
 | Setting | Default | Description |
 |---------|---------|-------------|
 | `SYNTHETIC_API_KEY` | (required) | Your Synthetic API key |
-| Model | `hf:zai-org/GLM-4.7` | Default model (supports tool use + thinking) |
+| Model | `hf:nvidia/Kimi-K2.5-NVFP4` | Default model (fastest, best tool calling) |
 | Max tokens | 16,384 | Maximum output tokens per response |
 | Max turns | 50 | Maximum tool-calling turns per conversation |
 | Subagent max turns | 15 | Maximum turns for subagent calls |
