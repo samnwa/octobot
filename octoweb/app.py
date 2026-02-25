@@ -48,9 +48,18 @@ def track_file(tool_name, tool_input):
 
 @app.route("/")
 def index():
+    from octobot.config import has_api_key, get_model
+    if not has_api_key():
+        return render_template(
+            "index.html",
+            configured=False,
+            model="",
+            tool_count=len(TOOL_DEFINITIONS),
+        )
     agent = get_agent()
     return render_template(
         "index.html",
+        configured=True,
         model=agent.model,
         tool_count=len(TOOL_DEFINITIONS),
     )
@@ -251,6 +260,39 @@ def api_model():
         save_config(config)
 
     return jsonify({"model": agent.model, "persisted": persist})
+
+
+@app.route("/api/setup", methods=["GET", "POST"])
+def api_setup():
+    from octobot.config import has_api_key, load_config, save_config
+    if request.method == "GET":
+        return jsonify({"configured": has_api_key()})
+
+    data = request.get_json()
+    api_key = data.get("api_key", "").strip()
+    if not api_key:
+        return jsonify({"error": "API key is required"}), 400
+
+    try:
+        import httpx
+        r = httpx.get(
+            "https://api.synthetic.new/openai/v1/models",
+            headers={"Authorization": f"Bearer {api_key}"},
+            timeout=10,
+        )
+        if r.status_code == 401:
+            return jsonify({"error": "Invalid API key"}), 401
+    except Exception:
+        pass
+
+    config = load_config()
+    config["synthetic_api_key"] = api_key
+    save_config(config)
+
+    global _agent
+    _agent = None
+
+    return jsonify({"status": "ok"})
 
 
 @app.route("/api/commands")
@@ -459,6 +501,10 @@ def web_chat(agent, user_message, eq):
 
 
 def run_web(host="0.0.0.0", port=5000):
-    get_agent()
+    from octobot.config import has_api_key
+    if has_api_key():
+        get_agent()
+    else:
+        print("\n  No API key configured — setup screen will be shown in the web UI.")
     print(f"\n  Octobot Web UI running at http://{host}:{port}\n")
     app.run(host=host, port=port, debug=False, threaded=True)

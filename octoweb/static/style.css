@@ -880,6 +880,114 @@ main::-webkit-scrollbar-thumb,
     }
 }
 
+.setup-screen {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 20px;
+}
+
+.setup-box {
+    width: 100%;
+    max-width: 400px;
+    text-align: center;
+}
+
+.setup-title {
+    font-size: 36px;
+    font-weight: 700;
+    color: var(--accent-cyan);
+    letter-spacing: 4px;
+    font-family: var(--font-mono);
+    margin-bottom: 4px;
+}
+
+.setup-subtitle {
+    color: var(--text-secondary);
+    font-size: 13px;
+    margin-bottom: 32px;
+}
+
+.setup-form {
+    text-align: left;
+}
+
+.setup-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+}
+
+.setup-hint {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-bottom: 10px;
+}
+
+.setup-hint a {
+    color: var(--accent-cyan);
+    text-decoration: none;
+}
+
+.setup-hint a:hover {
+    text-decoration: underline;
+}
+
+.setup-input {
+    width: 100%;
+    padding: 12px 14px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 14px;
+    font-family: var(--font-mono);
+    outline: none;
+    transition: border-color 0.2s;
+    margin-bottom: 12px;
+}
+
+.setup-input:focus {
+    border-color: var(--accent-cyan);
+}
+
+.setup-error {
+    color: var(--accent-red);
+    font-size: 12px;
+    margin-bottom: 10px;
+}
+
+.setup-error.hidden {
+    display: none;
+}
+
+.setup-btn {
+    width: 100%;
+    padding: 12px;
+    background: var(--accent-cyan);
+    border: none;
+    border-radius: 8px;
+    color: var(--bg-primary);
+    font-weight: 700;
+    font-size: 14px;
+    font-family: var(--font-mono);
+    cursor: pointer;
+    transition: opacity 0.2s;
+    letter-spacing: 1px;
+}
+
+.setup-btn:hover {
+    opacity: 0.85;
+}
+
+.setup-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 @media (max-width: 400px) {
     .header-meta {
         display: none;

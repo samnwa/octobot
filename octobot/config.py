@@ -13,6 +13,13 @@ CONFIG_DIR = Path.home() / ".octobot"
 CONFIG_FILE = CONFIG_DIR / "config.json"
 
 
+def has_api_key():
+    if os.environ.get("SYNTHETIC_API_KEY"):
+        return True
+    config = load_config()
+    return bool(config.get("synthetic_api_key"))
+
+
 def get_api_key():
     key = os.environ.get("SYNTHETIC_API_KEY")
     if not key:

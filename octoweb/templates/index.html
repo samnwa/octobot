@@ -13,6 +13,56 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 </head>
 <body>
+    {% if not configured %}
+    <div id="setup-screen" class="setup-screen">
+        <div class="setup-box">
+            <h1 class="setup-title">OCTOBOT</h1>
+            <p class="setup-subtitle">AI coding assistant</p>
+            <div class="setup-form">
+                <label class="setup-label" for="setup-key">Synthetic API Key</label>
+                <p class="setup-hint">Get your key at <a href="https://dev.synthetic.new" target="_blank">synthetic.new</a></p>
+                <input type="password" id="setup-key" class="setup-input" placeholder="sk-..." autocomplete="off" autofocus>
+                <div id="setup-error" class="setup-error hidden"></div>
+                <button id="setup-btn" class="setup-btn">Start Octobot</button>
+            </div>
+        </div>
+    </div>
+    <script>
+        const setupBtn = document.getElementById("setup-btn");
+        const setupKey = document.getElementById("setup-key");
+        const setupError = document.getElementById("setup-error");
+
+        setupBtn.addEventListener("click", async () => {
+            const key = setupKey.value.trim();
+            if (!key) { showSetupError("Please enter your API key"); return; }
+            setupBtn.disabled = true;
+            setupBtn.textContent = "Validating...";
+            setupError.classList.add("hidden");
+            try {
+                const r = await fetch("/api/setup", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ api_key: key }),
+                });
+                const data = await r.json();
+                if (data.error) { showSetupError(data.error); return; }
+                window.location.reload();
+            } catch (e) {
+                showSetupError("Connection error — try again");
+            } finally {
+                setupBtn.disabled = false;
+                setupBtn.textContent = "Start Octobot";
+            }
+        });
+
+        setupKey.addEventListener("keydown", (e) => { if (e.key === "Enter") setupBtn.click(); });
+
+        function showSetupError(msg) {
+            setupError.textContent = msg;
+            setupError.classList.remove("hidden");
+        }
+    </script>
+    {% else %}
     <div id="app">
         <header>
             <div class="header-left">
@@ -134,5 +184,6 @@
         </footer>
     </div>
     <script src="/static/app.js"></script>
+    {% endif %}
 </body>
 </html>

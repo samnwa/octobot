@@ -23,12 +23,11 @@ A locally-runnable, super-efficient AI tool-calling agent. Inspired by [Octofrie
 
 ## Quick Start
 
-```bash
-export SYNTHETIC_API_KEY="your-key-here"
+1. Run `./start.sh` (or `python main.py`)
+2. Open http://localhost:5000
+3. Paste your [Synthetic API key](https://dev.synthetic.new) and click **Start Octobot**
 
-python main.py          # Web UI → opens at http://localhost:5000
-python main.py --cli    # Terminal mode
-```
+That's it. For terminal mode, run `python main.py --cli` instead.
 
 ## Features
 
@@ -48,11 +47,11 @@ python main.py --cli    # Terminal mode
 
 ## Setup
 
-### 1. Get a Synthetic API Key
+The easiest way: just run `./start.sh` and open the web UI — it will prompt you for your API key on first launch.
 
-Sign up at [synthetic.new](https://dev.synthetic.new) and get your API key.
+### Advanced Setup
 
-### 2. Set Your API Key
+If you prefer to set your API key via environment variable or config file:
 
 ```bash
 export SYNTHETIC_API_KEY="your-key-here"
@@ -66,11 +65,7 @@ Or store it in `~/.octobot/config.json`:
 }
 ```
 
-### 3. Run
-
-```bash
-python main.py
-```
+### Manual Installation
 
 On first run, octobot detects missing dependencies and offers to install them automatically. Just hit Enter to confirm.
 
