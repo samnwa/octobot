@@ -16,6 +16,35 @@ from .octopus import start_swimming, stop_swimming
 
 console = Console()
 
+_TOOL_CALL_RE = re.compile(
+    r'<tool_call>\s*(\w+)(.*?)</tool_call>',
+    re.DOTALL,
+)
+_ARG_RE = re.compile(
+    r'<arg_key>(.*?)</arg_key>\s*<arg_value>(.*?)</arg_value>',
+    re.DOTALL,
+)
+
+
+def _parse_xml_tool_calls(text):
+    calls = []
+    for match in _TOOL_CALL_RE.finditer(text):
+        name = match.group(1).strip()
+        args_text = match.group(2)
+        args = {}
+        for arg_match in _ARG_RE.finditer(args_text):
+            key = arg_match.group(1).strip()
+            value = arg_match.group(2).strip()
+            try:
+                value = json.loads(value)
+            except (json.JSONDecodeError, ValueError):
+                pass
+            args[key] = value
+        calls.append({"name": name, "input": args})
+    clean_text = _TOOL_CALL_RE.sub("", text).strip()
+    return calls, clean_text
+
+
 _UNTRUSTED_CONTENT_TOOLS = {
     "web_fetch", "web_search",
     "browser_navigate", "browser_get_text", "browser_snapshot",
@@ -182,8 +211,55 @@ class Agent:
                 self._display_thinking(getattr(block, "thinking", ""))
 
             elif block_type == "text" and block.text.strip():
-                self._display_text(block.text)
-                self._tool_call_history.append("__TEXT__")
+                xml_calls, clean_text = _parse_xml_tool_calls(block.text)
+                if clean_text:
+                    self._display_text(clean_text)
+                    self._tool_call_history.append("__TEXT__")
+
+                for call in xml_calls:
+                    call_id = f"xmltool_{id(call)}"
+                    if self._check_loop(call["name"], call["input"]):
+                        loop_detected = True
+                        tool_results.append({
+                            "type": "tool_result",
+                            "tool_use_id": call_id,
+                            "content": json.dumps({"error": "Loop detected - please try a different approach."}),
+                        })
+                        continue
+
+                    class _FakeBlock:
+                        def __init__(self, name, inp, bid):
+                            self.name = name
+                            self.input = inp
+                            self.id = bid
+                    fake = _FakeBlock(call["name"], call["input"], call_id)
+                    self._display_tool_use(fake)
+
+                    needs_approval, reason = check_approval(call["name"], call["input"])
+                    if needs_approval:
+                        approved = prompt_approval(call["name"], call["input"], reason)
+                        if not approved:
+                            tool_results.append({
+                                "type": "tool_result",
+                                "tool_use_id": call_id,
+                                "content": json.dumps({"error": "User declined this operation."}),
+                            })
+                            continue
+
+                    result = execute_tool(call["name"], call["input"])
+                    self._display_tool_result(call["name"], result)
+
+                    if call["name"] in _UNTRUSTED_CONTENT_TOOLS:
+                        result = _tag_untrusted_content(result)
+
+                    result_str = json.dumps(result)
+                    if len(result_str) > 50000:
+                        result_str = result_str[:50000] + "... [truncated]"
+                    tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": call_id,
+                        "content": result_str,
+                    })
 
             elif block_type == "tool_use":
                 if self._check_loop(block.name, block.input):

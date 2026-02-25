@@ -91,7 +91,7 @@ def web_chat(agent, user_message, eq):
     from octobot.config import MAX_TOKENS, MAX_TURNS
     from octobot.tools import get_tool_definitions, execute_tool
     from octobot.approval import check_approval
-    from octobot.agent import _tag_untrusted_content, _UNTRUSTED_CONTENT_TOOLS
+    from octobot.agent import _tag_untrusted_content, _UNTRUSTED_CONTENT_TOOLS, _parse_xml_tool_calls
 
     agent.messages.append({"role": "user", "content": user_message})
     agent._tool_call_history = []
@@ -129,8 +129,56 @@ def web_chat(agent, user_message, eq):
             if block_type == "thinking":
                 eq.put(("thinking", {"text": block.thinking or ""}))
             elif block_type == "text":
-                agent._tool_call_history.append("__TEXT__")
-                eq.put(("text", {"content": block.text}))
+                xml_calls, clean_text = _parse_xml_tool_calls(block.text)
+                if clean_text:
+                    agent._tool_call_history.append("__TEXT__")
+                    eq.put(("text", {"content": clean_text}))
+
+                for call in xml_calls:
+                    call_id = f"xmltool_{id(call)}"
+                    if agent._check_loop(call["name"], call["input"]):
+                        loop_detected = True
+                        tool_results.append({
+                            "type": "tool_result",
+                            "tool_use_id": call_id,
+                            "content": json.dumps({"error": "Loop detected."}),
+                        })
+                        eq.put(("error", {"message": "Loop detected."}))
+                        continue
+
+                    inp_summary = json.dumps(call["input"], indent=2)
+                    if len(inp_summary) > 500:
+                        inp_summary = inp_summary[:500] + "..."
+                    eq.put(("tool_use", {"name": call["name"], "input": inp_summary}))
+
+                    needs_approval, reason = check_approval(call["name"], call["input"])
+                    if needs_approval:
+                        eq.put(("error", {"message": f"Operation requires approval: {reason} — auto-declined in web mode."}))
+                        tool_results.append({
+                            "type": "tool_result",
+                            "tool_use_id": call_id,
+                            "content": json.dumps({"error": "Declined in web mode for safety."}),
+                        })
+                        continue
+
+                    result = execute_tool(call["name"], call["input"])
+                    result_display = json.dumps(result, indent=2)
+                    if len(result_display) > 1000:
+                        result_display = result_display[:1000] + "\n... [truncated]"
+                    eq.put(("tool_result", {"name": call["name"], "result": result_display}))
+
+                    if call["name"] in _UNTRUSTED_CONTENT_TOOLS:
+                        result = _tag_untrusted_content(result)
+
+                    r_str = json.dumps(result)
+                    if len(r_str) > 50000:
+                        r_str = r_str[:50000] + "... [truncated]"
+                    tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": call_id,
+                        "content": r_str,
+                    })
+
             elif block_type == "tool_use":
                 if agent._check_loop(block.name, block.input):
                     loop_detected = True
