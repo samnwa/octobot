@@ -45,6 +45,20 @@ marked.setOptions({
 });
 
 let isProcessing = false;
+let currentReader = null;
+
+sendBtn.addEventListener("click", async (e) => {
+    if (isProcessing) {
+        e.preventDefault();
+        await fetch("/stop", { method: "POST" });
+        if (currentReader) {
+            try { await currentReader.cancel(); } catch(_) {}
+            currentReader = null;
+        }
+        setProcessing(false);
+        return;
+    }
+});
 
 chatForm.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -78,6 +92,7 @@ chatForm.addEventListener("submit", async (e) => {
         });
 
         const reader = response.body.getReader();
+        currentReader = reader;
         const decoder = new TextDecoder();
         let buffer = "";
         let currentAssistantEl = null;
@@ -144,9 +159,12 @@ chatForm.addEventListener("submit", async (e) => {
             }
         }
     } catch (err) {
-        addError("Connection error: " + err.message);
+        if (err.name !== "AbortError" && err.message !== "Released reader") {
+            addError("Connection error: " + err.message);
+        }
     }
 
+    currentReader = null;
     setProcessing(false);
 });
 
@@ -158,12 +176,18 @@ resetBtn.addEventListener("click", async () => {
 
 function setProcessing(val) {
     isProcessing = val;
-    sendBtn.disabled = val;
-    messageInput.disabled = val;
+    sendBtn.disabled = false;
+    messageInput.disabled = false;
     swimmer.classList.toggle("hidden", !val);
     if (val) {
+        sendBtn.textContent = "Stop";
+        sendBtn.type = "button";
+        sendBtn.classList.add("stop-mode");
         setStatus("Thinking...");
     } else {
+        sendBtn.textContent = "Send";
+        sendBtn.type = "submit";
+        sendBtn.classList.remove("stop-mode");
         statusBar.classList.add("hidden");
         messageInput.focus();
     }

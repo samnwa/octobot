@@ -871,6 +871,13 @@ footer {
     cursor: not-allowed;
 }
 
+#send-btn.stop-mode {
+    background: #ff4444;
+    color: #fff;
+    opacity: 1;
+    cursor: pointer;
+}
+
 main::-webkit-scrollbar,
 .file-tree::-webkit-scrollbar,
 .viewer-content::-webkit-scrollbar {

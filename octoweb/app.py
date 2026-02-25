@@ -12,6 +12,7 @@ app = Flask(__name__)
 _agent = None
 _agent_lock = threading.Lock()
 _touched_files = set()
+_stop_event = threading.Event()
 
 SKIP_DIRS = {
     "__pycache__", ".git", "node_modules", ".pytest_cache",
@@ -68,17 +69,19 @@ def index():
 
 @app.route("/chat", methods=["POST"])
 def chat():
+    global _stop_event
     data = request.get_json()
     message = data.get("message", "").strip()
     if not message:
         return jsonify({"error": "Empty message"}), 400
 
+    _stop_event.clear()
     agent = get_agent()
     event_queue = queue.Queue()
 
     def run_agent():
         try:
-            web_chat(agent, message, event_queue)
+            web_chat(agent, message, event_queue, _stop_event)
         except Exception as e:
             event_queue.put(("error", {"message": str(e)}))
         finally:
@@ -99,6 +102,12 @@ def chat():
                 break
 
     return Response(generate(), mimetype="text/event-stream")
+
+
+@app.route("/stop", methods=["POST"])
+def stop():
+    _stop_event.set()
+    return jsonify({"status": "ok"})
 
 
 @app.route("/reset", methods=["POST"])
@@ -345,7 +354,7 @@ def favicon():
     return "", 204
 
 
-def web_chat(agent, user_message, eq):
+def web_chat(agent, user_message, eq, stop_event=None):
     import time as _time
     from octobot.config import MAX_TOKENS, MAX_TURNS
     from octobot.tools import get_tool_definitions, execute_tool
@@ -358,6 +367,11 @@ def web_chat(agent, user_message, eq):
     agent.save_history()
 
     for turn in range(MAX_TURNS):
+        if stop_event and stop_event.is_set():
+            eq.put(("text", {"content": "\n\n*Stopped by user.*"}))
+            agent.save_history()
+            return
+
         eq.put(("thinking", {"text": "Thinking..."}))
 
         response = None
@@ -519,6 +533,11 @@ def web_chat(agent, user_message, eq):
                         "tool_use_id": block.id,
                         "content": r_str,
                     })
+
+        if stop_event and stop_event.is_set():
+            eq.put(("text", {"content": "\n\n*Stopped by user.*"}))
+            agent.save_history()
+            return
 
         if response.stop_reason == "end_turn" or not tool_results:
             break
