@@ -58,6 +58,8 @@ def print_help():
   [cyan]/models[/cyan]          List all available models from the API
   [cyan]/tokens[/cyan]          Show token usage for this session
   [cyan]/stats[/cyan]           Show router stats (latency, health, failover)
+  [cyan]/history[/cyan]         List past conversations
+  [cyan]/history[/cyan] <#>     Resume a past conversation
   [cyan]/octo[/cyan]            Toggle the swimming octopus animation
   [cyan]/help[/cyan]            Show this help message
   [cyan]/quit[/cyan]            Exit octobot
@@ -250,6 +252,57 @@ def main(model, single):
                 console.print(table)
                 console.print()
                 continue
+            elif cmd == "/history":
+                from octobot.history import list_sessions
+                from rich.table import Table
+                sessions = list_sessions()
+                if not sessions:
+                    console.print("[dim]No conversation history.[/dim]\n")
+                    continue
+                table = Table(title="Conversation History", border_style="cyan")
+                table.add_column("#", style="dim", justify="right")
+                table.add_column("Preview", style="white", max_width=50)
+                table.add_column("Messages", justify="right")
+                table.add_column("Tokens", justify="right")
+                table.add_column("Model", style="dim")
+                import time as _t
+                for i, s in enumerate(sessions, 1):
+                    age = _t.time() - s["updated_at"]
+                    if age < 3600:
+                        when = f"{int(age/60)}m ago"
+                    elif age < 86400:
+                        when = f"{int(age/3600)}h ago"
+                    else:
+                        when = f"{int(age/86400)}d ago"
+                    current = " *" if s["session_id"] == agent.session_id else ""
+                    short_model = s["model"].split("/")[-1] if "/" in s["model"] else s["model"]
+                    table.add_row(
+                        str(i) + current,
+                        s["preview"],
+                        str(s["message_count"]),
+                        f"{s['input_tokens']:,}+{s['output_tokens']:,}",
+                        f"{short_model} ({when})",
+                    )
+                console.print(table)
+                console.print("[dim]Use /history <number> to resume a conversation[/dim]\n")
+                continue
+            elif cmd.startswith("/history") and len(user_input.split()) > 1:
+                from octobot.history import list_sessions
+                parts = user_input.split()
+                try:
+                    idx = int(parts[1]) - 1
+                    sessions = list_sessions()
+                    if 0 <= idx < len(sessions):
+                        sid = sessions[idx]["session_id"]
+                        if agent.load_history(sid):
+                            console.print(f"[green]Resumed conversation ({len(agent.messages)} messages, {agent.total_input_tokens:,}+{agent.total_output_tokens:,} tokens)[/green]\n")
+                        else:
+                            console.print("[red]Failed to load session.[/red]\n")
+                    else:
+                        console.print("[red]Invalid session number.[/red]\n")
+                except ValueError:
+                    console.print("[red]Usage: /history <number>[/red]\n")
+                continue
             elif cmd == "/help":
                 print_help()
                 continue
@@ -259,4 +312,5 @@ def main(model, single):
 
         console.print()
         agent.chat(user_input)
+        agent.save_history()
         console.print()

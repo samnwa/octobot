@@ -28,6 +28,7 @@ COMMANDS = [
     {"name": "/tools", "description": "List available tools"},
     {"name": "/skills", "description": "List loaded skills"},
     {"name": "/stats", "description": "Show router stats"},
+    {"name": "/history", "description": "List past conversations"},
     {"name": "/octo", "description": "Toggle swimming octopus"},
     {"name": "/help", "description": "Show help"},
 ]
@@ -312,6 +313,33 @@ def api_router():
     })
 
 
+@app.route("/api/history")
+def api_history():
+    from octobot.history import list_sessions
+    sessions = list_sessions()
+    agent = get_agent()
+    return jsonify({
+        "sessions": sessions,
+        "current_session": agent.session_id,
+    })
+
+
+@app.route("/api/history/<session_id>", methods=["POST"])
+def api_history_load(session_id):
+    agent = get_agent()
+    if agent.load_history(session_id):
+        return jsonify({"status": "ok", "message_count": len(agent.messages)})
+    return jsonify({"error": "Session not found"}), 404
+
+
+@app.route("/api/history/<session_id>", methods=["DELETE"])
+def api_history_delete(session_id):
+    from octobot.history import delete_session
+    if delete_session(session_id):
+        return jsonify({"status": "ok"})
+    return jsonify({"error": "Session not found"}), 404
+
+
 @app.route("/favicon.ico")
 def favicon():
     return "", 204
@@ -498,6 +526,8 @@ def web_chat(agent, user_message, eq):
             continue
 
         agent.messages.append({"role": "user", "content": tool_results})
+
+    agent.save_history()
 
 
 def run_web(host="0.0.0.0", port=5000):

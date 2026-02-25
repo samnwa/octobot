@@ -21,6 +21,7 @@ octobot/
   sandbox.py             - AST-validated Python sandbox for multi-tool chaining
   octopus.py             - Swimming octopus animation (loading indicator during API calls)
   router.py              - Smart model router with failover, health tracking, latency stats
+  history.py             - Conversation history persistence (auto-save, list, resume, delete)
 octoweb/
   __init__.py            - Package init
   app.py                 - Flask web server, SSE streaming, WebAgent chat logic, file/command APIs
@@ -49,6 +50,7 @@ LICENSE                  - MIT License
   - Prompt injection defense (untrusted content tagged with delimiters, injection patterns detected)
 - **Browser Automation**: Playwright headless Chromium, accessibility snapshots with numbered refs, ref-based clicking/typing, vision (base64 screenshots sent as image blocks)
 - **Subagents**: Independent child agents for subtask delegation, 15 turn limit, no recursive spawning
+- **Conversation History**: Auto-saved to ~/.octobot/history/ as JSON; `/history` command lists/resumes past sessions; web API at /api/history
 - **Persistent Memory**: ~/.octobot/memory/MEMORY.md loaded into system prompt
 - **Skills System**: SKILL.md-based, compatible with OpenClaw/PicoClaw format
 - **Custom Identity**: ~/.octobot/AGENT.md and IDENTITY.md for personality

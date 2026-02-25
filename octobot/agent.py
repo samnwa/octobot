@@ -14,6 +14,7 @@ from .memory import load_memory_context
 from .approval import check_approval, prompt_approval
 from .octopus import start_swimming, stop_swimming
 from .router import record_success, record_failure, get_fallbacks, is_model_healthy
+from .history import save_session, load_session, generate_session_id
 
 console = Console()
 
@@ -98,6 +99,7 @@ class Agent:
         self.total_output_tokens = 0
         self.skills_manager = SkillsManager()
         self._tool_call_history = []
+        self.session_id = generate_session_id()
 
     def _build_system_prompt(self):
         parts = [load_identity()]
@@ -404,8 +406,27 @@ class Agent:
             justify="right",
         )
 
+    def save_history(self):
+        if self.messages:
+            save_session(
+                self.session_id, self.model, self.messages,
+                self.total_input_tokens, self.total_output_tokens,
+            )
+
+    def load_history(self, session_id):
+        data = load_session(session_id)
+        if data:
+            self.session_id = data["session_id"]
+            self.messages = data["messages"]
+            self.total_input_tokens = data.get("input_tokens", 0)
+            self.total_output_tokens = data.get("output_tokens", 0)
+            self._tool_call_history = []
+            return True
+        return False
+
     def reset(self):
         self.messages = []
         self.total_input_tokens = 0
         self.total_output_tokens = 0
         self._tool_call_history = []
+        self.session_id = generate_session_id()

@@ -52,8 +52,22 @@ chatForm.addEventListener("submit", async (e) => {
     if (!message || isProcessing) return;
 
     hideCmdAutocomplete();
-    addUserMessage(message);
     messageInput.value = "";
+
+    if (message === "/history") {
+        addUserMessage(message);
+        await showHistory();
+        return;
+    }
+
+    if (message.startsWith("/history ")) {
+        addUserMessage(message);
+        const num = parseInt(message.split(" ")[1]);
+        await loadHistorySession(num);
+        return;
+    }
+
+    addUserMessage(message);
     setProcessing(true);
 
     try {
@@ -587,6 +601,78 @@ function renderModels(models) {
     modelList.querySelectorAll(".model-item").forEach((el) => {
         el.addEventListener("click", () => switchModel(el.dataset.model));
     });
+}
+
+let historyCache = null;
+
+async function showHistory() {
+    try {
+        const r = await fetch("/api/history");
+        const data = await r.json();
+        historyCache = data.sessions;
+        if (!historyCache.length) {
+            addAssistantMessage("<p style='color:var(--text-secondary)'>No conversation history.</p>");
+            return;
+        }
+        let html = '<div class="history-list"><p style="margin-bottom:12px;color:var(--text-secondary)">Past conversations (click to resume):</p><table style="width:100%;border-collapse:collapse;font-size:12px">';
+        html += '<tr style="color:var(--text-secondary);text-align:left"><th style="padding:6px 8px">#</th><th style="padding:6px 8px">Preview</th><th style="padding:6px 8px">Messages</th><th style="padding:6px 8px">When</th></tr>';
+        historyCache.forEach((s, i) => {
+            const age = (Date.now() / 1000) - s.updated_at;
+            let when;
+            if (age < 3600) when = Math.floor(age / 60) + "m ago";
+            else if (age < 86400) when = Math.floor(age / 3600) + "h ago";
+            else when = Math.floor(age / 86400) + "d ago";
+            const current = s.session_id === data.current_session ? " *" : "";
+            const preview = escapeHtml(s.preview || "(empty)");
+            html += `<tr class="history-row" data-idx="${i + 1}" style="cursor:pointer;border-top:1px solid var(--border-color)">`;
+            html += `<td style="padding:6px 8px;color:var(--accent-cyan)">${i + 1}${current}</td>`;
+            html += `<td style="padding:6px 8px">${preview}</td>`;
+            html += `<td style="padding:6px 8px;text-align:center">${s.message_count}</td>`;
+            html += `<td style="padding:6px 8px;color:var(--text-secondary)">${when}</td>`;
+            html += `</tr>`;
+        });
+        html += '</table><p style="margin-top:10px;color:var(--text-secondary);font-size:11px">Type /history &lt;number&gt; to resume</p></div>';
+        const el = addAssistantMessage(html);
+        el.querySelectorAll(".history-row").forEach(row => {
+            row.addEventListener("click", () => {
+                loadHistorySession(parseInt(row.dataset.idx));
+            });
+        });
+    } catch (e) {
+        addError("Failed to load history");
+    }
+}
+
+async function loadHistorySession(num) {
+    if (!historyCache) {
+        try {
+            const r = await fetch("/api/history");
+            const data = await r.json();
+            historyCache = data.sessions;
+        } catch (e) {
+            addError("Failed to load history");
+            return;
+        }
+    }
+    const idx = num - 1;
+    if (idx < 0 || idx >= historyCache.length) {
+        addAssistantMessage("<p style='color:var(--text-secondary)'>Invalid session number. Use /history to see available sessions.</p>");
+        return;
+    }
+    const session = historyCache[idx];
+    try {
+        const r = await fetch(`/api/history/${session.session_id}`, { method: "POST" });
+        const data = await r.json();
+        if (data.error) {
+            addError(data.error);
+            return;
+        }
+        messagesEl.innerHTML = `<div class="welcome-message"><p>Resumed conversation: "${escapeHtml(session.preview)}" (${data.message_count} messages)</p></div>`;
+        tokenDisplay.textContent = "";
+        historyCache = null;
+    } catch (e) {
+        addError("Failed to load session");
+    }
 }
 
 async function switchModel(modelId) {
