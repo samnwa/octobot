@@ -93,10 +93,10 @@ def chat():
     def generate():
         while True:
             try:
-                event_type, data = event_queue.get(timeout=120)
+                event_type, data = event_queue.get(timeout=30)
             except queue.Empty:
-                yield f"event: error\ndata: {json.dumps({'message': 'Timeout'})}\n\n"
-                break
+                yield ": keepalive\n\n"
+                continue
             yield f"event: {event_type}\ndata: {json.dumps(data)}\n\n"
             if event_type == "done":
                 break
@@ -375,12 +375,43 @@ def favicon():
     return "", 204
 
 
+def _web_call_model(agent, model, eq, retries=2):
+    import time as _time
+    from octobot.config import MAX_TOKENS
+    from octobot.agent import _is_transient_error
+    from octobot.router import record_success
+
+    for attempt in range(1 + retries):
+        try:
+            t0 = _time.time()
+            response = agent.client.messages.create(
+                model=model,
+                max_tokens=MAX_TOKENS,
+                system=agent._build_system_prompt(),
+                tools=agent._build_tools(),
+                messages=agent.messages,
+            )
+            latency = _time.time() - t0
+            record_success(
+                model, latency,
+                response.usage.input_tokens, response.usage.output_tokens,
+            )
+            return response
+        except Exception as e:
+            if attempt < retries and _is_transient_error(e):
+                wait = 5 * (2 ** attempt)
+                eq.put(("thinking", {"text": f"Retrying {model} in {wait}s..."}))
+                _time.sleep(wait)
+            else:
+                raise
+
+
 def web_chat(agent, user_message, eq, stop_event=None):
     import time as _time
     from octobot.config import MAX_TOKENS, MAX_TURNS
     from octobot.tools import get_tool_definitions, execute_tool
     from octobot.approval import check_approval
-    from octobot.agent import _tag_untrusted_content, _UNTRUSTED_CONTENT_TOOLS, _parse_xml_tool_calls
+    from octobot.agent import _tag_untrusted_content, _UNTRUSTED_CONTENT_TOOLS, _parse_xml_tool_calls, _is_transient_error
     from octobot.router import record_success, record_failure, get_fallbacks
 
     agent.messages.append({"role": "user", "content": user_message})
@@ -397,21 +428,10 @@ def web_chat(agent, user_message, eq, stop_event=None):
 
         response = None
         models_to_try = [agent.model] + get_fallbacks(agent.model)
+        last_error = None
         for try_model in models_to_try:
             try:
-                t0 = _time.time()
-                response = agent.client.messages.create(
-                    model=try_model,
-                    max_tokens=MAX_TOKENS,
-                    system=agent._build_system_prompt(),
-                    tools=agent._build_tools(),
-                    messages=agent.messages,
-                )
-                latency = _time.time() - t0
-                record_success(
-                    try_model, latency,
-                    response.usage.input_tokens, response.usage.output_tokens,
-                )
+                response = _web_call_model(agent, try_model, eq)
                 if try_model != agent.model:
                     eq.put(("text", {
                         "content": f"*Failover: using {try_model} (primary unavailable)*\n\n",
@@ -419,9 +439,21 @@ def web_chat(agent, user_message, eq, stop_event=None):
                 break
             except Exception as e:
                 record_failure(try_model)
-                if try_model == models_to_try[-1]:
-                    eq.put(("error", {"message": f"API Error: All models failed. {e}"}))
+                last_error = e
+
+        if response is None:
+            if last_error and _is_transient_error(last_error):
+                eq.put(("thinking", {"text": "All models failed. Retrying in 30 seconds..."}))
+                _time.sleep(30)
+                try:
+                    response = _web_call_model(agent, agent.model, eq, retries=0)
+                except Exception as e:
+                    record_failure(agent.model)
+                    eq.put(("error", {"message": f"API Error: All models failed after retry. {e}"}))
                     return
+            else:
+                eq.put(("error", {"message": f"API Error: All models failed. {last_error}"}))
+                return
 
         agent.total_input_tokens += response.usage.input_tokens
         agent.total_output_tokens += response.usage.output_tokens

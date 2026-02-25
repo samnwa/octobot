@@ -54,7 +54,7 @@ LICENSE                  - MIT License
 - **Persistent Memory**: ~/.octobot/memory/MEMORY.md loaded into system prompt
 - **Skills System**: SKILL.md-based, compatible with OpenClaw/PicoClaw format
 - **Custom Identity**: ~/.octobot/AGENT.md and IDENTITY.md for personality
-- **Smart Router**: Automatic failover across 4 models, latency tracking, health monitoring, exponential backoff cooldown
+- **Smart Router**: Automatic failover across 4 models, per-model retry with backoff (2 retries, 5s/10s), last-chance retry after 30s cooldown, latency tracking, health monitoring, exponential backoff cooldown, 120s API timeout
 - **Loop Detection**: Stops repetitive tool-call patterns automatically
 - **Rich CLI**: Cyan-themed ASCII banner, markdown rendering, token tracking, `/stats` command
 

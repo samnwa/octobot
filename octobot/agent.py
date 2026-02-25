@@ -86,6 +86,20 @@ def _tag_untrusted_content(result):
     return tagged
 
 
+def _is_transient_error(e):
+    err_str = str(e).lower()
+    if any(code in err_str for code in ["timeout", "timed out", "connection", "connect"]):
+        return True
+    if hasattr(e, "status_code"):
+        return e.status_code in (429, 500, 502, 503, 504, 529)
+    if any(code in err_str for code in ["429", "500", "502", "503", "504", "529", "rate limit", "overloaded"]):
+        return True
+    return False
+
+
+API_TIMEOUT = 120
+
+
 class Agent:
     def __init__(self, model=None):
         self.api_key = get_api_key()
@@ -93,6 +107,7 @@ class Agent:
         self.client = Anthropic(
             api_key=self.api_key,
             base_url=SYNTHETIC_BASE_URL,
+            timeout=API_TIMEOUT,
         )
         self.messages = []
         self.total_input_tokens = 0
@@ -326,25 +341,37 @@ class Agent:
 
         return tool_results, response.stop_reason, loop_detected
 
-    def _call_model(self, model=None):
+    def _call_model(self, model=None, retries=2):
         import time as _time
         use_model = model or self.model
-        t0 = _time.time()
-        response = self.client.messages.create(
-            model=use_model,
-            max_tokens=MAX_TOKENS,
-            system=self._build_system_prompt(),
-            tools=self._build_tools(),
-            messages=self.messages,
-        )
-        latency = _time.time() - t0
-        record_success(
-            use_model, latency,
-            response.usage.input_tokens, response.usage.output_tokens,
-        )
-        return response, use_model
+        last_error = None
+        for attempt in range(1 + retries):
+            try:
+                t0 = _time.time()
+                response = self.client.messages.create(
+                    model=use_model,
+                    max_tokens=MAX_TOKENS,
+                    system=self._build_system_prompt(),
+                    tools=self._build_tools(),
+                    messages=self.messages,
+                )
+                latency = _time.time() - t0
+                record_success(
+                    use_model, latency,
+                    response.usage.input_tokens, response.usage.output_tokens,
+                )
+                return response, use_model
+            except Exception as e:
+                last_error = e
+                if attempt < retries and _is_transient_error(e):
+                    wait = 5 * (2 ** attempt)
+                    console.print(f"[dim]Retry {attempt + 1}/{retries} for {use_model} in {wait}s ({e})[/dim]")
+                    _time.sleep(wait)
+                else:
+                    raise
 
     def _call_with_failover(self):
+        import time as _time
         models_to_try = [self.model] + get_fallbacks(self.model)
         last_error = None
         for model in models_to_try:
@@ -367,6 +394,16 @@ class Agent:
                     console.print(
                         f"[dim]Fallback {model} also failed: {e}[/dim]",
                     )
+
+        if _is_transient_error(last_error):
+            console.print("[bold yellow]All models failed. Retrying in 30 seconds...[/bold yellow]")
+            _time.sleep(30)
+            try:
+                return self._call_model(self.model, retries=0)
+            except Exception as e:
+                record_failure(self.model)
+                last_error = e
+
         raise last_error
 
     def chat(self, user_message):
