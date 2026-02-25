@@ -337,7 +337,28 @@ def api_history():
 def api_history_load(session_id):
     agent = get_agent()
     if agent.load_history(session_id):
-        return jsonify({"status": "ok", "message_count": len(agent.messages)})
+        display_messages = []
+        for msg in agent.messages:
+            role = msg.get("role", "")
+            content = msg.get("content", "")
+            if role == "user" and isinstance(content, str):
+                display_messages.append({"role": "user", "text": content})
+            elif role == "assistant":
+                blocks = content if isinstance(content, list) else []
+                for block in blocks:
+                    block_type = getattr(block, "type", None) or (block.get("type") if isinstance(block, dict) else None)
+                    if block_type == "text":
+                        text = getattr(block, "text", None) or (block.get("text") if isinstance(block, dict) else "")
+                        if text:
+                            display_messages.append({"role": "assistant", "text": text})
+                    elif block_type == "tool_use":
+                        name = getattr(block, "name", None) or (block.get("name") if isinstance(block, dict) else "")
+                        display_messages.append({"role": "tool_use", "name": name})
+        return jsonify({
+            "status": "ok",
+            "message_count": len(agent.messages),
+            "display_messages": display_messages,
+        })
     return jsonify({"error": "Session not found"}), 404
 
 

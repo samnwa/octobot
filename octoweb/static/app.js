@@ -691,9 +691,26 @@ async function loadHistorySession(num) {
             addError(data.error);
             return;
         }
-        messagesEl.innerHTML = `<div class="welcome-message"><p>Resumed conversation: "${escapeHtml(session.preview)}" (${data.message_count} messages)</p></div>`;
+        messagesEl.innerHTML = "";
+        if (data.display_messages && data.display_messages.length > 0) {
+            for (const msg of data.display_messages) {
+                if (msg.role === "user") {
+                    addUserMessage(msg.text);
+                } else if (msg.role === "assistant") {
+                    addAssistantMessage(marked.parse(msg.text));
+                } else if (msg.role === "tool_use") {
+                    const tag = document.createElement("div");
+                    tag.className = "tool-panel";
+                    tag.innerHTML = `<div class="tool-header"><span class="tool-name">Tool: ${escapeHtml(msg.name)}</span></div>`;
+                    messagesEl.appendChild(tag);
+                }
+            }
+        } else {
+            messagesEl.innerHTML = `<div class="welcome-message"><p>Resumed conversation (${data.message_count} messages in context)</p></div>`;
+        }
         tokenDisplay.textContent = "";
         historyCache = null;
+        scrollToBottom();
     } catch (e) {
         addError("Failed to load session");
     }
