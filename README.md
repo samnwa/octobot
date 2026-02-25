@@ -21,6 +21,15 @@
 
 A locally-runnable, super-efficient AI tool-calling agent. Inspired by [Octofriend](https://github.com/synthetic-lab/octofriend), [OpenClaw](https://github.com/openclaw/openclaw), and [PicoClaw](https://github.com/sipeed/picoclaw) -- built for developers who want a lightweight, extensible coding assistant that runs right in their terminal.
 
+## Quick Start
+
+```bash
+export SYNTHETIC_API_KEY="your-key-here"
+
+python main.py          # Web UI → opens at http://localhost:5000
+python main.py --cli    # Terminal mode
+```
+
 ## Features
 
 - **25 Built-in Tools** -- file ops, shell, web, browser automation, subagents, memory, and more
