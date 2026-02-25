@@ -193,6 +193,14 @@ async function sendMessage(message) {
 
     currentReader = null;
     setProcessing(false);
+
+    if (messageQueue.length > 0) {
+        const next = messageQueue.shift();
+        renderQueue();
+        setStatus("Running next queued prompt...");
+        await new Promise(r => setTimeout(r, 800));
+        sendMessage(next);
+    }
 }
 
 resetBtn.addEventListener("click", async () => {
@@ -218,12 +226,6 @@ function setProcessing(val) {
         sendBtn.classList.remove("stop-mode");
         statusBar.classList.add("hidden");
         messageInput.focus();
-
-        if (messageQueue.length > 0) {
-            const next = messageQueue.shift();
-            renderQueue();
-            setTimeout(() => sendMessage(next), 300);
-        }
     }
 }
 
