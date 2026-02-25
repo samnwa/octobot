@@ -12,6 +12,7 @@ app = Flask(__name__)
 _agent = None
 _agent_lock = threading.Lock()
 _touched_files = set()
+_in_progress_files = set()
 _stop_event = threading.Event()
 
 SKIP_DIRS = {
@@ -43,9 +44,10 @@ def get_agent():
 
 
 def track_file(tool_name, tool_input):
-    global _touched_files
+    global _touched_files, _in_progress_files
     if tool_name in ("write_file", "edit_file", "apply_patch") and "path" in tool_input:
         _touched_files.add(tool_input["path"])
+        _in_progress_files.add(tool_input["path"])
 
 
 @app.route("/")
@@ -91,6 +93,7 @@ def chat():
     thread.start()
 
     def generate():
+        global _in_progress_files
         while True:
             try:
                 event_type, data = event_queue.get(timeout=30)
@@ -99,6 +102,7 @@ def chat():
                 continue
             yield f"event: {event_type}\ndata: {json.dumps(data)}\n\n"
             if event_type == "done":
+                _in_progress_files = set()
                 break
 
     return Response(generate(), mimetype="text/event-stream")
@@ -112,10 +116,11 @@ def stop():
 
 @app.route("/reset", methods=["POST"])
 def reset():
-    global _touched_files
+    global _touched_files, _in_progress_files
     agent = get_agent()
     agent.reset()
     _touched_files = set()
+    _in_progress_files = set()
     return jsonify({"status": "ok"})
 
 
@@ -163,6 +168,7 @@ def api_files():
                     "type": "dir",
                     "children": children,
                     "touched": any(t.startswith(rel + "/") for t in _touched_files),
+                    "in_progress": any(t.startswith(rel + "/") for t in _in_progress_files),
                 })
             else:
                 if hide_core and any(rel.startswith(p) for p in CORE_PREFIXES):
@@ -181,6 +187,7 @@ def api_files():
                     "size": size,
                     "modified": mtime,
                     "touched": rel in _touched_files,
+                    "in_progress": rel in _in_progress_files,
                 })
         return entries
 

@@ -28,11 +28,20 @@ const viewerToggle = document.getElementById("viewer-toggle");
 const togglePreview = document.getElementById("toggle-preview");
 const toggleCode = document.getElementById("toggle-code");
 const viewerPreview = document.getElementById("viewer-preview");
+const queueBtn = document.getElementById("queue-btn");
+const queuePanel = document.getElementById("queue-panel");
+const queueClose = document.getElementById("queue-close");
+const queueListEl = document.getElementById("queue-list");
+const queueInput = document.getElementById("queue-input");
+const queueAddBtn = document.getElementById("queue-add-btn");
+const queueBadge = document.getElementById("queue-badge");
 
 let commands = [];
 let modelsCache = null;
 let currentFileContent = "";
 let currentFileExt = "";
+let messageQueue = [];
+let inProgressFiles = new Set();
 
 marked.setOptions({
     highlight: function (code, lang) {
@@ -50,6 +59,8 @@ let currentReader = null;
 sendBtn.addEventListener("click", async (e) => {
     if (isProcessing) {
         e.preventDefault();
+        messageQueue = [];
+        renderQueue();
         await fetch("/stop", { method: "POST" });
         if (currentReader) {
             try { await currentReader.cancel(); } catch(_) {}
@@ -63,7 +74,7 @@ sendBtn.addEventListener("click", async (e) => {
 chatForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     const message = messageInput.value.trim();
-    if (!message || isProcessing) return;
+    if (!message) return;
 
     hideCmdAutocomplete();
     messageInput.value = "";
@@ -81,8 +92,21 @@ chatForm.addEventListener("submit", async (e) => {
         return;
     }
 
+    if (isProcessing) {
+        messageQueue.push(message);
+        renderQueue();
+        addUserMessage(message);
+        addAssistantMessage('<span style="color:var(--text-secondary)">Queued (#' + messageQueue.length + ')</span>');
+        return;
+    }
+
+    await sendMessage(message);
+});
+
+async function sendMessage(message) {
     addUserMessage(message);
     setProcessing(true);
+    inProgressFiles = new Set();
 
     try {
         const response = await fetch("/chat", {
@@ -151,6 +175,8 @@ chatForm.addEventListener("submit", async (e) => {
                             addError(data.message);
                             break;
                         case "done":
+                            inProgressFiles = new Set();
+                            loadFiles();
                             break;
                     }
                     eventType = null;
@@ -166,7 +192,7 @@ chatForm.addEventListener("submit", async (e) => {
 
     currentReader = null;
     setProcessing(false);
-});
+}
 
 resetBtn.addEventListener("click", async () => {
     await fetch("/reset", { method: "POST" });
@@ -183,13 +209,20 @@ function setProcessing(val) {
         sendBtn.textContent = "Stop";
         sendBtn.type = "button";
         sendBtn.classList.add("stop-mode");
-        setStatus("Thinking...");
+        const queueStatus = messageQueue.length > 0 ? " \u00b7 Queue: " + messageQueue.length + " remaining" : "";
+        setStatus("Thinking..." + queueStatus);
     } else {
         sendBtn.textContent = "Send";
         sendBtn.type = "submit";
         sendBtn.classList.remove("stop-mode");
         statusBar.classList.add("hidden");
         messageInput.focus();
+
+        if (messageQueue.length > 0) {
+            const next = messageQueue.shift();
+            renderQueue();
+            setTimeout(() => sendMessage(next), 300);
+        }
     }
 }
 
@@ -294,7 +327,11 @@ filesBtn.addEventListener("click", () => {
     const isHidden = filePanel.classList.contains("hidden");
     filePanel.classList.toggle("hidden", !isHidden);
     filesBtn.classList.toggle("active", isHidden);
-    if (isHidden) loadFiles();
+    if (isHidden) {
+        loadFiles();
+        queuePanel.classList.add("hidden");
+        queueBtn.classList.remove("active");
+    }
 });
 
 panelClose.addEventListener("click", () => {
@@ -324,7 +361,7 @@ function renderTree(items, parent, depth) {
 
         if (item.type === "dir") {
             const row = document.createElement("div");
-            row.className = "tree-item" + (item.touched ? " touched" : "");
+            row.className = "tree-item" + (item.touched ? " touched" : "") + (item.in_progress || inProgressFiles.has(item.path) ? " in-progress" : "");
             row.style.paddingLeft = (8 + depth * 16) + "px";
             row.innerHTML = `<span class="tree-icon dir-icon">&#9654;</span><span class="tree-name">${escapeHtml(item.name)}</span>`;
 
@@ -342,7 +379,7 @@ function renderTree(items, parent, depth) {
             el.appendChild(children);
         } else {
             const row = document.createElement("div");
-            row.className = "tree-item" + (item.touched ? " touched" : "");
+            row.className = "tree-item" + (item.touched ? " touched" : "") + (item.in_progress || inProgressFiles.has(item.path) ? " in-progress" : "");
             row.style.paddingLeft = (8 + depth * 16) + "px";
 
             const ext = item.name.split(".").pop();
@@ -455,6 +492,11 @@ document.addEventListener("keydown", (e) => {
         }
         if (!fileViewer.classList.contains("hidden")) {
             fileViewer.classList.add("hidden");
+            return;
+        }
+        if (!queuePanel.classList.contains("hidden")) {
+            queuePanel.classList.add("hidden");
+            queueBtn.classList.remove("active");
             return;
         }
         if (!filePanel.classList.contains("hidden")) {
@@ -586,11 +628,103 @@ function showAutocomplete(filtered) {
 }
 
 function onFileWritten(path) {
+    inProgressFiles.add(path);
     if (filePanel.classList.contains("hidden")) {
         filePanel.classList.remove("hidden");
         filesBtn.classList.add("active");
     }
     loadFiles();
+}
+
+queueBtn.addEventListener("click", () => {
+    const isHidden = queuePanel.classList.contains("hidden");
+    queuePanel.classList.toggle("hidden", !isHidden);
+    queueBtn.classList.toggle("active", isHidden);
+    if (!isHidden) return;
+    filePanel.classList.add("hidden");
+    filesBtn.classList.remove("active");
+});
+
+queueClose.addEventListener("click", () => {
+    queuePanel.classList.add("hidden");
+    queueBtn.classList.remove("active");
+});
+
+queueAddBtn.addEventListener("click", () => {
+    const text = queueInput.value.trim();
+    if (!text) return;
+    messageQueue.push(text);
+    queueInput.value = "";
+    renderQueue();
+    if (!isProcessing) {
+        const next = messageQueue.shift();
+        renderQueue();
+        sendMessage(next);
+    }
+});
+
+queueInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") queueAddBtn.click();
+});
+
+function renderQueue() {
+    if (messageQueue.length === 0) {
+        queueListEl.innerHTML = '<div class="queue-empty">No prompts queued</div>';
+    } else {
+        queueListEl.innerHTML = messageQueue.map((text, i) =>
+            `<div class="queue-item" data-idx="${i}">
+                <span class="queue-num">${i + 1}</span>
+                <span class="queue-text" title="${escapeHtml(text)}">${escapeHtml(text)}</span>
+                <button class="queue-item-btn edit-btn" data-idx="${i}" title="Edit">
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><path d="M9.1.9a1 1 0 011.4 0l.6.6a1 1 0 010 1.4L4.5 9.5 1.5 11l1.5-3L9.1.9z"/></svg>
+                </button>
+                <button class="queue-item-btn delete-btn" data-idx="${i}" title="Remove">
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><path d="M1.7 1.7a1 1 0 011.4 0L6 4.6l2.9-2.9a1 1 0 111.4 1.4L7.4 6l2.9 2.9a1 1 0 01-1.4 1.4L6 7.4l-2.9 2.9a1 1 0 01-1.4-1.4L4.6 6 1.7 3.1a1 1 0 010-1.4z"/></svg>
+                </button>
+            </div>`
+        ).join("");
+
+        queueListEl.querySelectorAll(".delete-btn").forEach(btn => {
+            btn.addEventListener("click", (e) => {
+                e.stopPropagation();
+                messageQueue.splice(parseInt(btn.dataset.idx), 1);
+                renderQueue();
+            });
+        });
+
+        queueListEl.querySelectorAll(".edit-btn").forEach(btn => {
+            btn.addEventListener("click", (e) => {
+                e.stopPropagation();
+                const idx = parseInt(btn.dataset.idx);
+                const item = btn.closest(".queue-item");
+                const textEl = item.querySelector(".queue-text");
+                const input = document.createElement("input");
+                input.type = "text";
+                input.className = "queue-edit-input";
+                input.value = messageQueue[idx];
+                textEl.replaceWith(input);
+                input.focus();
+                input.select();
+                const confirm = () => {
+                    const val = input.value.trim();
+                    if (val) messageQueue[idx] = val;
+                    renderQueue();
+                };
+                input.addEventListener("keydown", (ke) => { if (ke.key === "Enter") confirm(); if (ke.key === "Escape") renderQueue(); });
+                input.addEventListener("blur", confirm);
+            });
+        });
+    }
+    updateQueueBadge();
+}
+
+function updateQueueBadge() {
+    if (messageQueue.length > 0) {
+        queueBadge.textContent = messageQueue.length;
+        queueBadge.classList.remove("hidden");
+    } else {
+        queueBadge.classList.add("hidden");
+    }
 }
 
 loadCommands();
