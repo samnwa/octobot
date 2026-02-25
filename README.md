@@ -23,11 +23,34 @@ A locally-runnable, super-efficient AI tool-calling agent. Inspired by [Octofrie
 
 ## Quick Start
 
-1. Run `./start.sh` (or `python main.py`)
-2. Open http://localhost:5000
-3. Paste your [Synthetic API key](https://dev.synthetic.new) and click **Start Octobot**
+### Step 1: Get a free API key
 
-That's it. For terminal mode, run `python main.py --cli` instead.
+Go to [synthetic.new](https://dev.synthetic.new), sign up, and copy your API key. This is what lets Octobot talk to the AI models.
+
+### Step 2: Open a terminal
+
+You need a terminal (also called a command line) to start Octobot:
+
+- **Windows** -- press the Start button and search for **"Command Prompt"** or **"PowerShell"**, then open it
+- **Mac** -- press Cmd+Space, type **"Terminal"**, and open it
+- **Linux** -- press Ctrl+Alt+T
+- **Replit** -- you don't need to do anything, just click the **Run** button at the top
+
+### Step 3: Start Octobot
+
+In the terminal, navigate to the Octobot folder and run:
+
+```
+./start.sh
+```
+
+This installs everything automatically and opens the web interface. (If you're on Windows, run `python main.py` instead.)
+
+### Step 4: Paste your key and go
+
+A page will open in your browser. Paste the API key you copied in Step 1, click **Start Octobot**, and you're in. Start chatting -- ask it to write code, search the web, create files, or anything else.
+
+> **Power user?** Run `python main.py --cli` for a terminal-only interface instead of the web UI.
 
 ## Features
 
