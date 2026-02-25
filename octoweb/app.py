@@ -188,6 +188,34 @@ def api_files():
     return jsonify({"files": tree, "touched": list(_touched_files)})
 
 
+IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "ico"}
+MIME_TYPES = {
+    "png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg",
+    "gif": "image/gif", "webp": "image/webp", "svg": "image/svg+xml",
+    "bmp": "image/bmp", "ico": "image/x-icon",
+}
+
+
+@app.route("/api/file/raw")
+def api_file_raw():
+    from flask import send_file
+    base = os.getcwd()
+    path = request.args.get("path", "")
+    if not path:
+        return jsonify({"error": "No path"}), 400
+    full = os.path.normpath(os.path.join(base, path))
+    if not full.startswith(base):
+        return jsonify({"error": "Access denied"}), 403
+    if not os.path.isfile(full):
+        return jsonify({"error": "File not found"}), 404
+    size = os.path.getsize(full)
+    if size > 10_000_000:
+        return jsonify({"error": "File too large"}), 400
+    ext = os.path.splitext(path)[1].lstrip(".").lower()
+    mime = MIME_TYPES.get(ext, "application/octet-stream")
+    return send_file(full, mimetype=mime)
+
+
 @app.route("/api/file")
 def api_file():
     base = os.getcwd()
@@ -202,7 +230,18 @@ def api_file():
     if not os.path.isfile(full):
         return jsonify({"error": "File not found"}), 404
 
+    ext = os.path.splitext(path)[1].lstrip(".").lower()
+
     size = os.path.getsize(full)
+    if ext in IMAGE_EXTENSIONS:
+        return jsonify({
+            "path": path,
+            "content": "",
+            "size": size,
+            "extension": ext,
+            "is_image": True,
+        })
+
     if size > 100_000:
         return jsonify({"error": "File too large", "size": size}), 400
 
@@ -212,7 +251,6 @@ def api_file():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-    ext = os.path.splitext(path)[1].lstrip(".")
     return jsonify({
         "path": path,
         "content": content,

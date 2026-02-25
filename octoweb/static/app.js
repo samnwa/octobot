@@ -375,6 +375,8 @@ function fileIcon(ext) {
     return icons[ext] || "&#9679;";
 }
 
+const IMAGE_EXTS = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "ico"]);
+
 async function openFile(path) {
     try {
         const r = await fetch(`/api/file?path=${encodeURIComponent(path)}`);
@@ -388,11 +390,24 @@ async function openFile(path) {
         currentFileExt = data.extension;
 
         const codeEl = viewerContent.querySelector("code");
+
+        if (data.is_image || IMAGE_EXTS.has(currentFileExt)) {
+            codeEl.innerHTML = "";
+            viewerToggle.classList.add("hidden");
+            viewerPreview.classList.add("hidden");
+            viewerContent.innerHTML = `<img src="/api/file/raw?path=${encodeURIComponent(data.path)}" alt="${escapeHtml(data.path)}" style="max-width:100%;height:auto;display:block;margin:0 auto;border-radius:4px;">`;
+            viewerContent.classList.remove("hidden");
+            fileViewer.classList.remove("hidden");
+            return;
+        }
+
+        viewerContent.innerHTML = '<pre><code></code></pre>';
+        const newCodeEl = viewerContent.querySelector("code");
         const lang = hljs.getLanguage(currentFileExt) ? currentFileExt : null;
         if (lang) {
-            codeEl.innerHTML = hljs.highlight(data.content, { language: lang }).value;
+            newCodeEl.innerHTML = hljs.highlight(data.content, { language: lang }).value;
         } else {
-            codeEl.textContent = data.content;
+            newCodeEl.textContent = data.content;
         }
 
         if (currentFileExt === "html" || currentFileExt === "htm") {
