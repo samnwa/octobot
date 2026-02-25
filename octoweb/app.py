@@ -373,6 +373,8 @@ def web_chat(agent, user_message, eq):
                     if len(result_display) > 1000:
                         result_display = result_display[:1000] + "\n... [truncated]"
                     eq.put(("tool_result", {"name": call["name"], "result": result_display}))
+                    if call["name"] in ("write_file", "edit_file", "apply_patch") and "path" in call["input"]:
+                        eq.put(("file_written", {"path": call["input"]["path"]}))
 
                     if call["name"] in _UNTRUSTED_CONTENT_TOOLS:
                         result = _tag_untrusted_content(result)
@@ -419,6 +421,8 @@ def web_chat(agent, user_message, eq):
                 if len(result_str) > 1000:
                     result_str = result_str[:1000] + "\n... [truncated]"
                 eq.put(("tool_result", {"name": block.name, "result": result_str}))
+                if block.name in ("write_file", "edit_file", "apply_patch") and hasattr(block, "input") and "path" in block.input:
+                    eq.put(("file_written", {"path": block.input["path"]}))
 
                 if block.name in _UNTRUSTED_CONTENT_TOOLS:
                     result = _tag_untrusted_content(result)

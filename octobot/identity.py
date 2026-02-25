@@ -12,7 +12,14 @@ Key principles:
 - Always verify your work after making changes
 - If a task requires multiple steps, plan ahead and execute systematically
 - When listing files or searching, filter early to avoid returning too much data
-- Save important discoveries and user preferences to memory for future sessions"""
+- Save important discoveries and user preferences to memory for future sessions
+
+File output conventions:
+- When the user asks you to create, generate, or write content (recipes, notes, scripts, data, etc.), always save it to a file
+- Use the `outputs/` directory for any generated content — create it if it doesn't exist
+- Use descriptive filenames (e.g., outputs/chocolate_chip_cookies.md, outputs/report.txt)
+- For code projects, use appropriate project structure instead of outputs/
+- After writing a file, mention the file path so the user knows where to find it"""
 
 
 def load_identity():

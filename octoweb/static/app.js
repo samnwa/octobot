@@ -100,6 +100,9 @@ chatForm.addEventListener("submit", async (e) => {
                             tokenDisplay.textContent =
                                 `${data.input.toLocaleString()} in / ${data.output.toLocaleString()} out`;
                             break;
+                        case "file_written":
+                            onFileWritten(data.path);
+                            break;
                         case "error":
                             addError(data.message);
                             break;
@@ -472,6 +475,14 @@ function showAutocomplete(filtered) {
             hideCmdAutocomplete();
         });
     });
+}
+
+function onFileWritten(path) {
+    if (filePanel.classList.contains("hidden")) {
+        filePanel.classList.remove("hidden");
+        filesBtn.classList.add("active");
+    }
+    loadFiles();
 }
 
 loadCommands();
