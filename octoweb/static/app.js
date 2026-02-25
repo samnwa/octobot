@@ -78,6 +78,7 @@ chatForm.addEventListener("submit", async (e) => {
 
     hideCmdAutocomplete();
     messageInput.value = "";
+    messageInput.style.height = "auto";
 
     if (message === "/history") {
         addUserMessage(message);
@@ -561,6 +562,9 @@ function renderCmdDropdown() {
 let acSelectedIndex = -1;
 
 messageInput.addEventListener("input", () => {
+    messageInput.style.height = "auto";
+    messageInput.style.height = Math.min(messageInput.scrollHeight, 80) + "px";
+
     const val = messageInput.value;
     if (val.startsWith("/") && !val.includes(" ") && commands.length > 0) {
         const query = val.toLowerCase();
@@ -576,6 +580,11 @@ messageInput.addEventListener("input", () => {
 });
 
 messageInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        chatForm.dispatchEvent(new Event("submit", { cancelable: true }));
+        return;
+    }
     if (cmdAutocomplete.classList.contains("hidden")) return;
 
     const items = cmdAutocomplete.querySelectorAll(".cmd-ac-item");
@@ -698,9 +707,9 @@ function renderQueue() {
                 const idx = parseInt(btn.dataset.idx);
                 const item = btn.closest(".queue-item");
                 const textEl = item.querySelector(".queue-text");
-                const input = document.createElement("input");
-                input.type = "text";
+                const input = document.createElement("textarea");
                 input.className = "queue-edit-input";
+                input.rows = 3;
                 input.value = messageQueue[idx];
                 textEl.replaceWith(input);
                 input.focus();
@@ -710,7 +719,7 @@ function renderQueue() {
                     if (val) messageQueue[idx] = val;
                     renderQueue();
                 };
-                input.addEventListener("keydown", (ke) => { if (ke.key === "Enter") confirm(); if (ke.key === "Escape") renderQueue(); });
+                input.addEventListener("keydown", (ke) => { if (ke.key === "Enter" && !ke.shiftKey) { ke.preventDefault(); confirm(); } if (ke.key === "Escape") renderQueue(); });
                 input.addEventListener("blur", confirm);
             });
         });

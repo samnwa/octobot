@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/style.css?v=6">
+    <link rel="stylesheet" href="/static/style.css?v=7">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.0/marked.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
@@ -220,12 +220,12 @@
 
         <footer>
             <form id="chat-form">
-                <input type="text" id="message-input" placeholder="Type your message... (/ for commands)" autocomplete="off" autofocus>
+                <textarea id="message-input" rows="1" placeholder="Type your message... (/ for commands)" autocomplete="off" autofocus></textarea>
                 <button type="submit" id="send-btn">Send</button>
             </form>
         </footer>
     </div>
-    <script src="/static/app.js?v=6"></script>
+    <script src="/static/app.js?v=7"></script>
     {% endif %}
 </body>
 </html>
