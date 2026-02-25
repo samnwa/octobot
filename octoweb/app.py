@@ -1,4 +1,5 @@
 import json
+import os
 import queue
 import threading
 from flask import Flask, render_template, request, Response, jsonify, send_from_directory
@@ -10,6 +11,24 @@ app = Flask(__name__)
 
 _agent = None
 _agent_lock = threading.Lock()
+_touched_files = set()
+
+SKIP_DIRS = {
+    "__pycache__", ".git", "node_modules", ".pytest_cache",
+    ".mypy_cache", ".ruff_cache", "egg-info", ".eggs",
+}
+
+CORE_PREFIXES = ("octobot/", "octoweb/", ".git/", "__pycache__/", ".local/")
+
+COMMANDS = [
+    {"name": "/reset", "description": "Clear conversation history"},
+    {"name": "/model [name]", "description": "Show or switch model"},
+    {"name": "/tokens", "description": "Show token usage"},
+    {"name": "/tools", "description": "List available tools"},
+    {"name": "/skills", "description": "List loaded skills"},
+    {"name": "/octo", "description": "Toggle swimming octopus"},
+    {"name": "/help", "description": "Show help"},
+]
 
 
 def get_agent():
@@ -17,6 +36,12 @@ def get_agent():
     if _agent is None:
         _agent = Agent()
     return _agent
+
+
+def track_file(tool_name, tool_input):
+    global _touched_files
+    if tool_name in ("write_file", "edit_file", "apply_patch") and "path" in tool_input:
+        _touched_files.add(tool_input["path"])
 
 
 @app.route("/")
@@ -66,8 +91,10 @@ def chat():
 
 @app.route("/reset", methods=["POST"])
 def reset():
+    global _touched_files
     agent = get_agent()
     agent.reset()
+    _touched_files = set()
     return jsonify({"status": "ok"})
 
 
@@ -80,6 +107,103 @@ def status():
         "input_tokens": agent.total_input_tokens,
         "output_tokens": agent.total_output_tokens,
     })
+
+
+@app.route("/api/files")
+def api_files():
+    base = os.getcwd()
+    hide_core = request.args.get("hide_core", "true").lower() == "true"
+
+    def scan_dir(dirpath, rel_prefix=""):
+        entries = []
+        try:
+            items = sorted(os.listdir(dirpath))
+        except PermissionError:
+            return entries
+
+        for name in items:
+            if name.startswith(".") and name not in (".env",):
+                if not rel_prefix:
+                    continue
+            full = os.path.join(dirpath, name)
+            rel = os.path.join(rel_prefix, name) if rel_prefix else name
+
+            if os.path.isdir(full):
+                if name in SKIP_DIRS:
+                    continue
+                if name.endswith(".egg-info"):
+                    continue
+                if hide_core and any(rel.startswith(p.rstrip("/")) for p in CORE_PREFIXES):
+                    continue
+                children = scan_dir(full, rel)
+                entries.append({
+                    "name": name,
+                    "path": rel,
+                    "type": "dir",
+                    "children": children,
+                    "touched": any(t.startswith(rel + "/") for t in _touched_files),
+                })
+            else:
+                if hide_core and any(rel.startswith(p) for p in CORE_PREFIXES):
+                    continue
+                try:
+                    stat = os.stat(full)
+                    size = stat.st_size
+                    mtime = stat.st_mtime
+                except OSError:
+                    size = 0
+                    mtime = 0
+                entries.append({
+                    "name": name,
+                    "path": rel,
+                    "type": "file",
+                    "size": size,
+                    "modified": mtime,
+                    "touched": rel in _touched_files,
+                })
+        return entries
+
+    tree = scan_dir(base)
+    return jsonify({"files": tree, "touched": list(_touched_files)})
+
+
+@app.route("/api/file")
+def api_file():
+    base = os.getcwd()
+    path = request.args.get("path", "")
+    if not path:
+        return jsonify({"error": "No path"}), 400
+
+    full = os.path.normpath(os.path.join(base, path))
+    if not full.startswith(base):
+        return jsonify({"error": "Access denied"}), 403
+
+    if not os.path.isfile(full):
+        return jsonify({"error": "File not found"}), 404
+
+    size = os.path.getsize(full)
+    if size > 100_000:
+        return jsonify({"error": "File too large", "size": size}), 400
+
+    try:
+        with open(full, "r", encoding="utf-8", errors="replace") as f:
+            content = f.read()
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+    ext = os.path.splitext(path)[1].lstrip(".")
+    return jsonify({
+        "path": path,
+        "content": content,
+        "size": size,
+        "extension": ext,
+        "touched": path in _touched_files,
+    })
+
+
+@app.route("/api/commands")
+def api_commands():
+    return jsonify({"commands": COMMANDS})
 
 
 @app.route("/favicon.ico")
@@ -161,6 +285,7 @@ def web_chat(agent, user_message, eq):
                         })
                         continue
 
+                    track_file(call["name"], call["input"])
                     result = execute_tool(call["name"], call["input"])
                     result_display = json.dumps(result, indent=2)
                     if len(result_display) > 1000:
@@ -205,6 +330,7 @@ def web_chat(agent, user_message, eq):
                     })
                     continue
 
+                track_file(block.name, block.input)
                 result = execute_tool(block.name, block.input)
 
                 result_str = json.dumps(result, indent=2)

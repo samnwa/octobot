@@ -22,17 +22,17 @@ octobot/
   octopus.py             - Swimming octopus animation (loading indicator during API calls)
 octoweb/
   __init__.py            - Package init
-  app.py                 - Flask web server, SSE streaming, WebAgent chat logic
-  templates/index.html   - Chat UI template
-  static/style.css       - Dark theme styling, octopus CSS animation
-  static/app.js          - Frontend JS (SSE handling, markdown rendering, tool panels)
+  app.py                 - Flask web server, SSE streaming, WebAgent chat logic, file/command APIs
+  templates/index.html   - Chat UI template (JetBrains Mono font, file panel, command menu)
+  static/style.css       - Terminal-style dark theme, file browser panel, mobile responsive
+  static/app.js          - Frontend JS (SSE, markdown, tool panels, file browser, command autocomplete)
 README.md                - Comprehensive project documentation
 ```
 
 ## Key Features
 
 - **25 Tools**: file ops (read/write/edit/list/search/tree/file_info/apply_patch), shell (run_command), web (web_fetch with trafilatura, web_search), memory (save/read), subagent (spawn_subagent), browser (navigate/screenshot/click/type/get_text/snapshot/click_ref/type_ref/vision), meta-tools (tool_search, code_execution)
-- **Two Interfaces**: Web UI (Flask on port 5000) and terminal CLI
+- **Two Interfaces**: Web UI (Flask on port 5000, file browser sidebar, command menu, mobile responsive) and terminal CLI
 - **Efficiency Optimizations** (inspired by Anthropic's advanced tool calling):
   - Deferred tool loading: 13 tools deferred, 12 always loaded; saves tokens per request
   - Code execution sandbox: chain multiple tool calls in one round trip via Python code

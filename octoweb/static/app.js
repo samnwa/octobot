@@ -5,6 +5,21 @@ const sendBtn = document.getElementById("send-btn");
 const resetBtn = document.getElementById("reset-btn");
 const tokenDisplay = document.getElementById("token-display");
 const swimmer = document.getElementById("swimming-octopus");
+const filesBtn = document.getElementById("files-btn");
+const filePanel = document.getElementById("file-panel");
+const panelClose = document.getElementById("panel-close");
+const hideCore = document.getElementById("hide-core");
+const refreshFiles = document.getElementById("refresh-files");
+const fileTree = document.getElementById("file-tree");
+const fileViewer = document.getElementById("file-viewer");
+const viewerPath = document.getElementById("viewer-path");
+const viewerContent = document.getElementById("viewer-content");
+const viewerClose = document.getElementById("viewer-close");
+const cmdBtn = document.getElementById("cmd-btn");
+const cmdDropdown = document.getElementById("cmd-dropdown");
+const cmdAutocomplete = document.getElementById("cmd-autocomplete");
+
+let commands = [];
 
 marked.setOptions({
     highlight: function (code, lang) {
@@ -23,6 +38,7 @@ chatForm.addEventListener("submit", async (e) => {
     const message = messageInput.value.trim();
     if (!message || isProcessing) return;
 
+    hideCmdAutocomplete();
     addUserMessage(message);
     messageInput.value = "";
     setProcessing(true);
@@ -202,3 +218,251 @@ function escapeHtml(text) {
     div.textContent = text;
     return div.innerHTML;
 }
+
+filesBtn.addEventListener("click", () => {
+    const isHidden = filePanel.classList.contains("hidden");
+    filePanel.classList.toggle("hidden", !isHidden);
+    filesBtn.classList.toggle("active", isHidden);
+    if (isHidden) loadFiles();
+});
+
+panelClose.addEventListener("click", () => {
+    filePanel.classList.add("hidden");
+    filesBtn.classList.remove("active");
+});
+
+hideCore.addEventListener("change", loadFiles);
+refreshFiles.addEventListener("click", loadFiles);
+
+async function loadFiles() {
+    const hide = hideCore.checked;
+    fileTree.innerHTML = '<div style="padding:12px;color:var(--text-secondary);">Loading...</div>';
+    try {
+        const r = await fetch(`/api/files?hide_core=${hide}`);
+        const data = await r.json();
+        fileTree.innerHTML = "";
+        renderTree(data.files, fileTree, 0);
+    } catch (e) {
+        fileTree.innerHTML = `<div style="padding:12px;color:var(--accent-red);">Error loading files</div>`;
+    }
+}
+
+function renderTree(items, parent, depth) {
+    for (const item of items) {
+        const el = document.createElement("div");
+
+        if (item.type === "dir") {
+            const row = document.createElement("div");
+            row.className = "tree-item" + (item.touched ? " touched" : "");
+            row.style.paddingLeft = (8 + depth * 16) + "px";
+            row.innerHTML = `<span class="tree-icon dir-icon">&#9654;</span><span class="tree-name">${escapeHtml(item.name)}</span>`;
+
+            const children = document.createElement("div");
+            children.className = "tree-children";
+            renderTree(item.children || [], children, depth + 1);
+
+            row.addEventListener("click", () => {
+                children.classList.toggle("open");
+                const icon = row.querySelector(".tree-icon");
+                icon.innerHTML = children.classList.contains("open") ? "&#9660;" : "&#9654;";
+            });
+
+            el.appendChild(row);
+            el.appendChild(children);
+        } else {
+            const row = document.createElement("div");
+            row.className = "tree-item" + (item.touched ? " touched" : "");
+            row.style.paddingLeft = (8 + depth * 16) + "px";
+
+            const ext = item.name.split(".").pop();
+            row.innerHTML = `<span class="tree-icon file-icon">${fileIcon(ext)}</span><span class="tree-name">${escapeHtml(item.name)}</span>`;
+
+            row.addEventListener("click", () => openFile(item.path));
+            el.appendChild(row);
+        }
+
+        parent.appendChild(el);
+    }
+}
+
+function fileIcon(ext) {
+    const icons = {
+        py: "&#128013;",
+        js: "JS",
+        ts: "TS",
+        json: "{}",
+        md: "#",
+        html: "&lt;&gt;",
+        css: "*",
+        txt: "T",
+        yml: "Y",
+        yaml: "Y",
+        toml: "T",
+        cfg: "C",
+        sh: "$",
+    };
+    return icons[ext] || "&#9679;";
+}
+
+async function openFile(path) {
+    try {
+        const r = await fetch(`/api/file?path=${encodeURIComponent(path)}`);
+        const data = await r.json();
+        if (data.error) {
+            alert(data.error);
+            return;
+        }
+        viewerPath.textContent = data.path;
+        const codeEl = viewerContent.querySelector("code");
+        const ext = data.extension;
+        const lang = hljs.getLanguage(ext) ? ext : null;
+        if (lang) {
+            codeEl.innerHTML = hljs.highlight(data.content, { language: lang }).value;
+        } else {
+            codeEl.textContent = data.content;
+        }
+        fileViewer.classList.remove("hidden");
+    } catch (e) {
+        alert("Failed to load file");
+    }
+}
+
+viewerClose.addEventListener("click", () => {
+    fileViewer.classList.add("hidden");
+});
+
+document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+        if (!fileViewer.classList.contains("hidden")) {
+            fileViewer.classList.add("hidden");
+            return;
+        }
+        if (!filePanel.classList.contains("hidden")) {
+            filePanel.classList.add("hidden");
+            filesBtn.classList.remove("active");
+            return;
+        }
+        hideCmdDropdown();
+        hideCmdAutocomplete();
+    }
+});
+
+cmdBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    cmdDropdown.classList.toggle("hidden");
+});
+
+document.addEventListener("click", (e) => {
+    if (!cmdDropdown.contains(e.target) && e.target !== cmdBtn) {
+        hideCmdDropdown();
+    }
+});
+
+function hideCmdDropdown() {
+    cmdDropdown.classList.add("hidden");
+}
+
+function hideCmdAutocomplete() {
+    cmdAutocomplete.classList.add("hidden");
+    acSelectedIndex = -1;
+}
+
+async function loadCommands() {
+    try {
+        const r = await fetch("/api/commands");
+        const data = await r.json();
+        commands = data.commands;
+        renderCmdDropdown();
+    } catch (e) {}
+}
+
+function renderCmdDropdown() {
+    const items = commands.map(
+        (c) =>
+            `<div class="cmd-item" data-cmd="${escapeHtml(c.name.split(" ")[0])}">
+                <span class="cmd-item-name">${escapeHtml(c.name)}</span>
+                <span class="cmd-item-desc">${escapeHtml(c.description)}</span>
+            </div>`
+    ).join("");
+    cmdDropdown.innerHTML = `<div class="cmd-dropdown-header">Commands</div>${items}`;
+
+    cmdDropdown.querySelectorAll(".cmd-item").forEach((el) => {
+        el.addEventListener("click", () => {
+            const cmd = el.dataset.cmd;
+            messageInput.value = cmd + " ";
+            messageInput.focus();
+            hideCmdDropdown();
+        });
+    });
+}
+
+let acSelectedIndex = -1;
+
+messageInput.addEventListener("input", () => {
+    const val = messageInput.value;
+    if (val.startsWith("/") && !val.includes(" ") && commands.length > 0) {
+        const query = val.toLowerCase();
+        const filtered = commands.filter((c) =>
+            c.name.split(" ")[0].toLowerCase().startsWith(query)
+        );
+        if (filtered.length > 0 && val.length > 0) {
+            showAutocomplete(filtered);
+            return;
+        }
+    }
+    hideCmdAutocomplete();
+});
+
+messageInput.addEventListener("keydown", (e) => {
+    if (cmdAutocomplete.classList.contains("hidden")) return;
+
+    const items = cmdAutocomplete.querySelectorAll(".cmd-ac-item");
+    if (!items.length) return;
+
+    if (e.key === "ArrowDown") {
+        e.preventDefault();
+        acSelectedIndex = Math.min(acSelectedIndex + 1, items.length - 1);
+        updateAcSelection(items);
+    } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        acSelectedIndex = Math.max(acSelectedIndex - 1, 0);
+        updateAcSelection(items);
+    } else if (e.key === "Tab" || (e.key === "Enter" && acSelectedIndex >= 0)) {
+        e.preventDefault();
+        const sel = items[Math.max(acSelectedIndex, 0)];
+        if (sel) {
+            messageInput.value = sel.dataset.cmd + " ";
+            hideCmdAutocomplete();
+        }
+    }
+});
+
+function updateAcSelection(items) {
+    items.forEach((el, i) => {
+        el.classList.toggle("selected", i === acSelectedIndex);
+    });
+}
+
+function showAutocomplete(filtered) {
+    acSelectedIndex = -1;
+    cmdAutocomplete.innerHTML = filtered
+        .map(
+            (c) =>
+                `<div class="cmd-ac-item" data-cmd="${escapeHtml(c.name.split(" ")[0])}">
+                    <span class="cmd-ac-name">${escapeHtml(c.name)}</span>
+                    <span class="cmd-ac-desc">${escapeHtml(c.description)}</span>
+                </div>`
+        )
+        .join("");
+    cmdAutocomplete.classList.remove("hidden");
+
+    cmdAutocomplete.querySelectorAll(".cmd-ac-item").forEach((el) => {
+        el.addEventListener("click", () => {
+            messageInput.value = el.dataset.cmd + " ";
+            messageInput.focus();
+            hideCmdAutocomplete();
+        });
+    });
+}
+
+loadCommands();
