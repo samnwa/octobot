@@ -27,26 +27,25 @@
 
 Go to [synthetic.new](https://dev.synthetic.new), sign up, and copy your API key. This is what lets Octobot talk to the AI models.
 
-### Step 2: Open a terminal
+### Step 2: Start Octobot
 
-You need a terminal (also called a command line) to start Octobot:
+Download or clone the project, open a terminal in the octobot folder, and run one command:
 
-- **Windows** -- press the Start button and search for **"Command Prompt"** or **"PowerShell"**, then open it
-- **Mac** -- press Cmd+Space, type **"Terminal"**, and open it
-- **Linux** -- press Ctrl+Alt+T
-- **Replit** -- you don't need to do anything, just click the **Run** button at the top
+**Windows** -- open Command Prompt or PowerShell, then run:
+```
+start.bat
+```
 
-### Step 3: Start Octobot
-
-In the terminal, navigate to the Octobot folder and run:
-
+**Mac / Linux** -- open Terminal, then run:
 ```
 ./start.sh
 ```
 
-This installs everything automatically and opens the web interface. (If you're on Windows, run `python main.py` instead.)
+**Replit** -- just click the **Run** button at the top.
 
-### Step 4: Paste your key and go
+Both scripts install dependencies automatically on first run and open the web interface.
+
+### Step 3: Paste your key and go
 
 A page will open in your browser. Paste the API key you copied in Step 1, click **Start Octobot**, and you're in. Start chatting -- ask it to write code, search the web, create files, or anything else.
 
