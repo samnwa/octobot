@@ -67,6 +67,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     if "--cli" in sys.argv:
+        sys.argv.remove("--cli")
         from octobot.cli import main
         main()
     else:
