@@ -891,8 +891,7 @@ async function switchModel(modelId) {
         const data = await r.json();
         if (data.model) {
             currentModelEl.textContent = data.model;
-            messagesEl.innerHTML = `<div class="welcome-message"><p>Switched to <span style="color:var(--accent-cyan)">${escapeHtml(data.model)}</span>. Conversation reset.</p></div>`;
-            tokenDisplay.textContent = "";
+            addAssistantMessage(`<p style="color:var(--text-secondary)">Switched to <span style="color:var(--accent-cyan)">${escapeHtml(data.model)}</span></p>`);
             modelsCache = null;
         }
     } catch (e) {

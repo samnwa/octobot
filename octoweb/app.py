@@ -317,7 +317,6 @@ def api_model():
         return jsonify({"error": "No model specified"}), 400
 
     agent.model = new_model
-    agent.reset()
 
     if persist:
         config = load_config()
