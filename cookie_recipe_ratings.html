@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cookie Recipe Ratings & Analysis</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #fdf6e3 0%, #f5e6d3 100%);
+            color: #4a4a4a;
+            line-height: 1.6;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            padding: 40px;
+        }
+        h1 {
+            text-align: center;
+            color: #8b4513;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+        .subtitle {
+            text-align: center;
+            color: #a0522d;
+            font-size: 1.1em;
+            margin-bottom: 40px;
+        }
+        .rubric-section {
+            background: #fff8dc;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 30px;
+            border-left: 5px solid #daa520;
+        }
+        .rubric-section h2 {
+            color: #8b4513;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+        }
+        .criteria {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .criterion {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .criterion h3 {
+            color: #d2691e;
+            font-size: 1.1em;
+            margin-bottom: 8px;
+        }
+        .criterion p {
+            font-size: 0.9em;
+            color: #666;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 30px 0;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        thead {
+            background: linear-gradient(135deg, #8b4513 0%, #a0522d 100%);
+            color: white;
+        }
+        th {
+            padding: 18px 15px;
+            text-align: left;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.9em;
+            letter-spacing: 0.5px;
+        }
+        td {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        tbody tr:hover {
+            background: #fff8dc;
+            transition: background 0.3s ease;
+        }
+        tbody tr:nth-child(even) {
+            background: #fafafa;
+        }
+        .recipe-name {
+            font-weight: 600;
+            color: #8b4513;
+        }
+        .score {
+            font-weight: bold;
+            font-size: 1.2em;
+            text-align: center;
+        }
+        .score-high {
+            color: #228b22;
+        }
+        .score-medium {
+            color: #daa520;
+        }
+        .score-low {
+            color: #cd5c5c;
+        }
+        .source-link {
+            color: #1e90ff;
+            text-decoration: none;
+            font-size: 0.9em;
+        }
+        .source-link:hover {
+            text-decoration: underline;
+        }
+        .winner-section {
+            background: linear-gradient(135deg, #ffd700 0%, #ffec8b 100%);
+            border-radius: 20px;
+            padding: 35px;
+            text-align: center;
+            margin-top: 40px;
+            box-shadow: 0 8px 25px rgba(218, 165, 32, 0.3);
+            border: 3px solid #daa520;
+        }
+        .winner-section h2 {
+            color: #8b4513;
+            font-size: 1.8em;
+            margin-bottom: 15px;
+        }
+        .winner-name {
+            font-size: 2em;
+            color: #8b4513;
+            font-weight: bold;
+            margin: 15px 0;
+            text-shadow: 1px 1px 2px rgba(255,255,255,0.5);
+        }
+        .winner-score {
+            font-size: 3em;
+            color: #228b22;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .emoji {
+            font-size: 1.5em;
+            margin: 0 5px;
+        }
+        .notes {
+            background: #f0f8ff;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 30px;
+            font-size: 0.9em;
+            color: #555;
+        }
+        .notes h3 {
+            color: #4682b4;
+            margin-bottom: 10px;
+        }
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+            h1 {
+                font-size: 1.8em;
+            }
+            th, td {
+                padding: 10px;
+                font-size: 0.9em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🍪 Cookie Recipe Ratings 🍪</h1>
+        <p class="subtitle">A comprehensive analysis of three classic cookie recipes</p>
+
+        <div class="rubric-section">
+            <h2>📋 Rating Criteria (1-10 Scale)</h2>
+            <div class="criteria">
+                <div class="criterion">
+                    <h3>1. Ease of Preparation</h3>
+                    <p>Evaluates ingredient accessibility, recipe simplicity, time required, and clarity of instructions. Higher scores mean easier to make.</p>
+                </div>
+                <div class="criterion">
+                    <h3>2. Texture & Quality</h3>
+                    <p>Assesses promised texture outcomes (chewy, soft, crispy), consistency, and overall baking quality described in the recipe.</p>
+                </div>
+                <div class="criterion">
+                    <h3>3. Flavor Complexity</h3>
+                    <p>Measures depth and richness of flavors, use of spices, layering of tastes, and overall sensory experience potential.</p>
+                </div>
+            </div>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Recipe</th>
+                    <th>Ease of Prep</th>
+                    <th>Texture & Quality</th>
+                    <th>Flavor Complexity</th>
+                    <th>Total Score</th>
+                    <th>Source</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="recipe-name">The Best Chocolate Chip Cookies</td>
+                    <td class="score score-high">9</td>
+                    <td class="score score-high">9</td>
+                    <td class="score score-medium">7</td>
+                    <td class="score" style="font-size: 1.4em; color: #8b4513;">25</td>
+                    <td><a href="https://joyfoodsunshine.com/the-most-amazing-chocolate-chip-cookies/" class="source-link" target="_blank">Joy Food Sunshine ↗</a></td>
+                </tr>
+                <tr>
+                    <td class="recipe-name">Peanut Butter-Oatmeal Chocolate Chip Cookies</td>
+                    <td class="score score-medium">7</td>
+                    <td class="score score-high">9</td>
+                    <td class="score score-high">10</td>
+                    <td class="score" style="font-size: 1.4em; color: #8b4513;">26</td>
+                    <td><a href="https://www.browneyedbaker.com/peanut-butter-oatmeal-chocolate-chip-cookies/" class="source-link" target="_blank">Brown Eyed Baker ↗</a></td>
+                </tr>
+                <tr>
+                    <td class="recipe-name">Soft & Chewy Oatmeal Raisin Cookies</td>
+                    <td class="score score-medium">7</td>
+                    <td class="score score-high">10</td>
+                    <td class="score score-high">9</td>
+                    <td class="score" style="font-size: 1.4em; color: #8b4513;">26</td>
+                    <td><a href="https://sallysbakingaddiction.com/soft-chewy-oatmeal-raisin-cookies/" class="source-link" target="_blank">Sally's Baking Addiction ↗</a></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="winner-section">
+            <h2><span class="emoji">🏆</span> Winner <span class="emoji">🏆</span></h2>
+            <p style="font-size: 1.1em; color: #666; margin-bottom: 10px;">We have a tie! Both recipes scored 26/30</p>
+            <div class="winner-name">Peanut Butter-Oatmeal Chocolate Chip Cookies</div>
+            <div style="font-size: 1.3em; color: #8b4513; margin: 10px 0;">&</div>
+            <div class="winner-name">Soft & Chewy Oatmeal Raisin Cookies</div>
+            <div class="winner-score">26/30</div>
+            <p style="font-size: 1em; color: #555; margin-top: 15px; max-width: 600px; margin-left: auto; margin-right: auto;">
+                <strong>Recommendation:</strong> Choose the Peanut Butter-Oatmeal Chocolate Chip for a crowd-pleasing indulgence with complex flavors, 
+                or the Oatmeal Raisin for a classic, cinnamon-spiced comfort cookie with exceptional texture.
+            </p>
+        </div>
+
+        <div class="notes">
+            <h3>📝 Recipe Highlights</h3>
+            <ul style="margin-left: 20px; margin-top: 10px;">
+                <li><strong>Chocolate Chip Cookies:</strong> No chilling required, promises "crispy and chewy" texture, simple classic ingredients (Score: 25/30)</li>
+                <li><strong>Peanut Butter-Oatmeal Chocolate Chip:</strong> Ultimate flavor trifecta combining three cookie types, soft & tender with toasted oat flavor (Score: 26/30)</li>
+                <li><strong>Oatmeal Raisin Cookies:</strong> Secret ingredient (molasses), 30-min chill time, "moist and tender centers" with cinnamon spice (Score: 26/30)</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>
