@@ -77,7 +77,7 @@ def print_help():
 
 
 def print_tools():
-    table = Table(title="Available Tools", border_style="cyan")
+    table = Table(title="Available Tools", border_style="cyan", title_style="bold cyan")
     table.add_column("Tool", style="bold cyan", no_wrap=True)
     table.add_column("Description", style="white")
     for t in TOOL_DEFINITIONS:
@@ -94,7 +94,7 @@ def print_skills(agent):
     if not skills:
         console.print("[dim]No skills loaded. Add skills to ~/.octobot/skills/ or ./skills/[/dim]\n")
         return
-    table = Table(title="Loaded Skills", border_style="cyan")
+    table = Table(title="Loaded Skills", border_style="cyan", title_style="bold cyan")
     table.add_column("Skill", style="bold cyan", no_wrap=True)
     table.add_column("Description", style="white")
     for s in skills:
@@ -185,7 +185,7 @@ def main(model, single):
                         timeout=10,
                     )
                     data = r.json()
-                    table = Table(title="Available Models", border_style="cyan")
+                    table = Table(title="Available Models", border_style="cyan", title_style="bold cyan")
                     table.add_column("Model ID", style="cyan")
                     table.add_column("Context", justify="right")
                     table.add_column("Provider")
@@ -229,7 +229,7 @@ def main(model, single):
                 from octobot.router import get_model_stats, FALLBACK_ORDER, is_model_healthy
                 from rich.table import Table
                 stats = get_model_stats()
-                table = Table(title="Router Stats", border_style="cyan")
+                table = Table(title="Router Stats", border_style="cyan", title_style="bold cyan")
                 table.add_column("Model", style="cyan")
                 table.add_column("Requests", justify="right")
                 table.add_column("Avg Latency", justify="right")
@@ -259,7 +259,7 @@ def main(model, single):
                 if not sessions:
                     console.print("[dim]No conversation history.[/dim]\n")
                     continue
-                table = Table(title="Conversation History", border_style="cyan")
+                table = Table(title="Conversation History", border_style="cyan", title_style="bold cyan")
                 table.add_column("#", style="dim", justify="right")
                 table.add_column("Preview", style="white", max_width=50)
                 table.add_column("Messages", justify="right")
