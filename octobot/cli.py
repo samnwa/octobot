@@ -44,7 +44,7 @@ def print_banner(model):
     info.append("  |  ", style="dim")
     info.append(f"{len(TOOL_DEFINITIONS)} tools", style="dim cyan")
     console.print(info)
-    console.print("[dim]  Commands: /tools /skills /reset /model /tokens /octo /help /quit[/dim]\n")
+    console.print("[dim]  Commands: /tools /skills /reset /model /tokens /stats /octo /help /quit[/dim]\n")
 
 
 def print_help():
@@ -56,6 +56,7 @@ def print_help():
   [cyan]/reset[/cyan]           Clear conversation history
   [cyan]/model[/cyan] [name]    Show or switch the current model
   [cyan]/tokens[/cyan]          Show token usage for this session
+  [cyan]/stats[/cyan]           Show router stats (latency, health, failover)
   [cyan]/octo[/cyan]            Toggle the swimming octopus animation
   [cyan]/help[/cyan]            Show this help message
   [cyan]/quit[/cyan]            Exit octobot
@@ -170,6 +171,33 @@ def main(model, single):
                     set_awake(True)
                     console.print(OCTOPUS_FULL, style="bold cyan")
                     console.print("[bold cyan]Octobot is awake![/bold cyan]\n")
+                continue
+            elif cmd == "/stats":
+                from octobot.router import get_model_stats, FALLBACK_ORDER, is_model_healthy
+                from rich.table import Table
+                stats = get_model_stats()
+                table = Table(title="Router Stats", border_style="cyan")
+                table.add_column("Model", style="cyan")
+                table.add_column("Requests", justify="right")
+                table.add_column("Avg Latency", justify="right")
+                table.add_column("Avg In Tokens", justify="right")
+                table.add_column("Avg Out Tokens", justify="right")
+                table.add_column("Healthy", justify="center")
+                for m in FALLBACK_ORDER:
+                    s = stats.get(m, {})
+                    healthy = "[green]Yes[/green]" if is_model_healthy(m) else "[red]No[/red]"
+                    short = m.split("/")[-1] if "/" in m else m
+                    primary = " *" if m == agent.model else ""
+                    table.add_row(
+                        short + primary,
+                        str(s.get("requests", 0)),
+                        f"{s.get('avg_latency', 0):.1f}s",
+                        str(s.get("avg_input_tokens", 0)),
+                        str(s.get("avg_output_tokens", 0)),
+                        healthy,
+                    )
+                console.print(table)
+                console.print()
                 continue
             elif cmd == "/help":
                 print_help()

@@ -20,6 +20,7 @@ octobot/
   browser.py             - Playwright browser automation with NixOS library auto-discovery
   sandbox.py             - AST-validated Python sandbox for multi-tool chaining
   octopus.py             - Swimming octopus animation (loading indicator during API calls)
+  router.py              - Smart model router with failover, health tracking, latency stats
 octoweb/
   __init__.py            - Package init
   app.py                 - Flask web server, SSE streaming, WebAgent chat logic, file/command APIs
@@ -48,8 +49,9 @@ README.md                - Comprehensive project documentation
 - **Persistent Memory**: ~/.octobot/memory/MEMORY.md loaded into system prompt
 - **Skills System**: SKILL.md-based, compatible with OpenClaw/PicoClaw format
 - **Custom Identity**: ~/.octobot/AGENT.md and IDENTITY.md for personality
+- **Smart Router**: Automatic failover across 4 models, latency tracking, health monitoring, exponential backoff cooldown
 - **Loop Detection**: Stops repetitive tool-call patterns automatically
-- **Rich CLI**: Cyan-themed ASCII banner, markdown rendering, token tracking
+- **Rich CLI**: Cyan-themed ASCII banner, markdown rendering, token tracking, `/stats` command
 
 ## Configuration
 

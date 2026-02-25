@@ -13,6 +13,7 @@ from .skills import SkillsManager
 from .memory import load_memory_context
 from .approval import check_approval, prompt_approval
 from .octopus import start_swimming, stop_swimming
+from .router import record_success, record_failure, get_fallbacks, is_model_healthy
 
 console = Console()
 
@@ -323,6 +324,49 @@ class Agent:
 
         return tool_results, response.stop_reason, loop_detected
 
+    def _call_model(self, model=None):
+        import time as _time
+        use_model = model or self.model
+        t0 = _time.time()
+        response = self.client.messages.create(
+            model=use_model,
+            max_tokens=MAX_TOKENS,
+            system=self._build_system_prompt(),
+            tools=self._build_tools(),
+            messages=self.messages,
+        )
+        latency = _time.time() - t0
+        record_success(
+            use_model, latency,
+            response.usage.input_tokens, response.usage.output_tokens,
+        )
+        return response, use_model
+
+    def _call_with_failover(self):
+        models_to_try = [self.model] + get_fallbacks(self.model)
+        last_error = None
+        for model in models_to_try:
+            try:
+                response, used_model = self._call_model(model)
+                if used_model != self.model:
+                    console.print(
+                        f"[bold yellow]Failover:[/bold yellow] Using "
+                        f"[cyan]{used_model}[/cyan] (primary unavailable)",
+                    )
+                return response, used_model
+            except Exception as e:
+                record_failure(model)
+                last_error = e
+                if model == self.model:
+                    console.print(
+                        f"[bold yellow]Model error:[/bold yellow] {e}. Trying fallback...",
+                    )
+                else:
+                    console.print(
+                        f"[dim]Fallback {model} also failed: {e}[/dim]",
+                    )
+        raise last_error
+
     def chat(self, user_message):
         self.messages.append({"role": "user", "content": user_message})
         self._tool_call_history = []
@@ -331,17 +375,11 @@ class Agent:
             try:
                 start_swimming()
                 try:
-                    response = self.client.messages.create(
-                        model=self.model,
-                        max_tokens=MAX_TOKENS,
-                        system=self._build_system_prompt(),
-                        tools=self._build_tools(),
-                        messages=self.messages,
-                    )
+                    response, used_model = self._call_with_failover()
                 finally:
                     stop_swimming()
             except Exception as e:
-                console.print(f"[bold red]API Error:[/bold red] {e}")
+                console.print(f"[bold red]API Error:[/bold red] All models failed. {e}")
                 return
 
             self.messages.append({"role": "assistant", "content": response.content})

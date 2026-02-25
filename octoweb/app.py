@@ -26,6 +26,7 @@ COMMANDS = [
     {"name": "/tokens", "description": "Show token usage"},
     {"name": "/tools", "description": "List available tools"},
     {"name": "/skills", "description": "List loaded skills"},
+    {"name": "/stats", "description": "Show router stats"},
     {"name": "/octo", "description": "Toggle swimming octopus"},
     {"name": "/help", "description": "Show help"},
 ]
@@ -206,16 +207,30 @@ def api_commands():
     return jsonify({"commands": COMMANDS})
 
 
+@app.route("/api/router")
+def api_router():
+    from octobot.router import get_model_stats, FALLBACK_ORDER, is_model_healthy
+    agent = get_agent()
+    return jsonify({
+        "primary": agent.model,
+        "fallback_order": FALLBACK_ORDER,
+        "stats": get_model_stats(),
+        "healthy": {m: is_model_healthy(m) for m in FALLBACK_ORDER},
+    })
+
+
 @app.route("/favicon.ico")
 def favicon():
     return "", 204
 
 
 def web_chat(agent, user_message, eq):
+    import time as _time
     from octobot.config import MAX_TOKENS, MAX_TURNS
     from octobot.tools import get_tool_definitions, execute_tool
     from octobot.approval import check_approval
     from octobot.agent import _tag_untrusted_content, _UNTRUSTED_CONTENT_TOOLS, _parse_xml_tool_calls
+    from octobot.router import record_success, record_failure, get_fallbacks
 
     agent.messages.append({"role": "user", "content": user_message})
     agent._tool_call_history = []
@@ -223,17 +238,33 @@ def web_chat(agent, user_message, eq):
     for turn in range(MAX_TURNS):
         eq.put(("thinking", {"text": "Thinking..."}))
 
-        try:
-            response = agent.client.messages.create(
-                model=agent.model,
-                max_tokens=MAX_TOKENS,
-                system=agent._build_system_prompt(),
-                tools=agent._build_tools(),
-                messages=agent.messages,
-            )
-        except Exception as e:
-            eq.put(("error", {"message": f"API Error: {e}"}))
-            return
+        response = None
+        models_to_try = [agent.model] + get_fallbacks(agent.model)
+        for try_model in models_to_try:
+            try:
+                t0 = _time.time()
+                response = agent.client.messages.create(
+                    model=try_model,
+                    max_tokens=MAX_TOKENS,
+                    system=agent._build_system_prompt(),
+                    tools=agent._build_tools(),
+                    messages=agent.messages,
+                )
+                latency = _time.time() - t0
+                record_success(
+                    try_model, latency,
+                    response.usage.input_tokens, response.usage.output_tokens,
+                )
+                if try_model != agent.model:
+                    eq.put(("text", {
+                        "content": f"*Failover: using {try_model} (primary unavailable)*\n\n",
+                    }))
+                break
+            except Exception as e:
+                record_failure(try_model)
+                if try_model == models_to_try[-1]:
+                    eq.put(("error", {"message": f"API Error: All models failed. {e}"}))
+                    return
 
         agent.total_input_tokens += response.usage.input_tokens
         agent.total_output_tokens += response.usage.output_tokens

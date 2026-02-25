@@ -121,6 +121,7 @@ python main.py --cli -m "hf:meta-llama/Llama-3.3-70B-Instruct"
 | `/model` | Show the current model |
 | `/model <name>` | Switch to a different model (resets conversation) |
 | `/tokens` | Show input/output token usage for the session |
+| `/stats` | Show smart router stats (latency, health, failover) |
 | `/help` | Show all commands |
 | `/quit` | Exit octobot |
 
@@ -363,6 +364,7 @@ octobot/
   subagent.py            Subagent spawning and management
   browser.py             Playwright browser automation with auto lib discovery
   sandbox.py             Sandboxed Python code execution for multi-tool chaining
+  router.py              Smart model router with failover, health tracking, latency stats
 ```
 
 ### How It Works
@@ -392,16 +394,21 @@ Octobot works with any model available on the Synthetic API. We benchmarked the 
 
 As we gather more data across different task types (multi-step workflows, code generation, reasoning), we expect to update these recommendations and eventually implement smart routing for maximum performance.
 
-### Smart Routing (Planned)
+### Smart Routing
 
-We plan to implement intelligent model routing that automatically selects the best model for each request, with fallback for reliability:
+Octobot includes a smart model router (`octobot/router.py`) that provides automatic failover and performance tracking:
 
-- **Automatic failover** — if the primary model returns errors or is unavailable, transparently retry with a fallback model
+- **Automatic failover** — if the primary model returns an error, octobot transparently retries with fallback models (Kimi-K2.5 → Qwen3.5-397B → MiniMax-M2.5 → GLM-4.7). You see a brief "Failover" notice but the conversation continues seamlessly
+- **Health monitoring** — each model's success/failure rate is tracked. After 3 consecutive failures, a model enters cooldown with exponential backoff (30s → 60s → 120s → up to 5min) before being retried
+- **Latency tracking** — every API call records response time, input/output tokens. Use `/stats` in the CLI or `GET /api/router` in the web UI to see per-model performance data
+- **Persistent stats** — router statistics are saved to `~/.octobot/router_stats.json` across sessions, building a long-term picture of model reliability
+
+**Planned enhancements:**
+
 - **Task-based routing** — route coding tasks to code-specialized models, reasoning tasks to thinking models, simple queries to fast lightweight models
-- **Latency-aware selection** — track response times per model and prefer faster options when quality is comparable
-- **Token budget optimization** — for long conversations approaching context limits, route to models with larger context windows
+- **Token budget optimization** — for long conversations approaching context limits, automatically route to models with larger context windows
 
-Switch models anytime with `/model <name>` in the CLI or web UI.
+Switch models anytime with `/model <name>` in the CLI or web UI. Check router health with `/stats`.
 
 ## Configuration
 
