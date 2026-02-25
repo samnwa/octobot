@@ -16,7 +16,7 @@
     --accent-yellow-dim: #d2992233;
     --accent-red: #f85149;
     --border-color: #30363d;
-    --user-bg: #0a2a3a;
+    --user-bg: #0a2a3f;
     --assistant-bg: #161b22;
 }
 
@@ -123,7 +123,7 @@ main {
 
 .message-user .message-bubble {
     background: var(--user-bg);
-    border: 1px solid #264f5f;
+    border: 1px solid #1a4a5f;
     border-radius: 16px 16px 4px 16px;
     padding: 10px 16px;
     max-width: 70%;
