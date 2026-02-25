@@ -18,8 +18,13 @@ const viewerClose = document.getElementById("viewer-close");
 const cmdBtn = document.getElementById("cmd-btn");
 const cmdDropdown = document.getElementById("cmd-dropdown");
 const cmdAutocomplete = document.getElementById("cmd-autocomplete");
+const modelTrigger = document.getElementById("model-trigger");
+const modelDropdown = document.getElementById("model-dropdown");
+const modelList = document.getElementById("model-list");
+const currentModelEl = document.getElementById("current-model");
 
 let commands = [];
+let modelsCache = null;
 
 marked.setOptions({
     highlight: function (code, lang) {
@@ -333,6 +338,10 @@ viewerClose.addEventListener("click", () => {
 
 document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
+        if (!modelDropdown.classList.contains("hidden")) {
+            modelDropdown.classList.add("hidden");
+            return;
+        }
         if (!fileViewer.classList.contains("hidden")) {
             fileViewer.classList.add("hidden");
             return;
@@ -466,3 +475,75 @@ function showAutocomplete(filtered) {
 }
 
 loadCommands();
+
+modelTrigger.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const isHidden = modelDropdown.classList.contains("hidden");
+    hideCmdDropdown();
+    modelDropdown.classList.toggle("hidden", !isHidden);
+    if (isHidden) loadModels();
+});
+
+document.addEventListener("click", (e) => {
+    if (!modelDropdown.contains(e.target) && !modelTrigger.contains(e.target)) {
+        modelDropdown.classList.add("hidden");
+    }
+});
+
+async function loadModels() {
+    if (modelsCache) {
+        renderModels(modelsCache);
+        return;
+    }
+    modelList.innerHTML = '<div class="model-loading">Loading models...</div>';
+    try {
+        const r = await fetch("/api/models");
+        const data = await r.json();
+        modelsCache = data.models || [];
+        renderModels(modelsCache);
+    } catch (e) {
+        modelList.innerHTML = '<div class="model-loading" style="color:var(--accent-red);">Failed to load models</div>';
+    }
+}
+
+function renderModels(models) {
+    const current = currentModelEl.textContent;
+    modelList.innerHTML = models.map((m) => {
+        const isActive = m.id === current;
+        const ctx = m.context_length ? `${Math.round(m.context_length / 1024)}K` : "";
+        return `<div class="model-item${isActive ? " active" : ""}" data-model="${escapeHtml(m.id)}">
+            <span class="model-item-check">${isActive ? "&#10003;" : ""}</span>
+            <span class="model-item-name">${escapeHtml(m.id)}</span>
+            <span class="model-item-meta">${ctx}</span>
+        </div>`;
+    }).join("");
+
+    modelList.querySelectorAll(".model-item").forEach((el) => {
+        el.addEventListener("click", () => switchModel(el.dataset.model));
+    });
+}
+
+async function switchModel(modelId) {
+    const current = currentModelEl.textContent;
+    if (modelId === current) {
+        modelDropdown.classList.add("hidden");
+        return;
+    }
+    try {
+        const r = await fetch("/api/model", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ model: modelId, persist: true }),
+        });
+        const data = await r.json();
+        if (data.model) {
+            currentModelEl.textContent = data.model;
+            messagesEl.innerHTML = `<div class="welcome-message"><p>Switched to <span style="color:var(--accent-cyan)">${escapeHtml(data.model)}</span>. Conversation reset.</p></div>`;
+            tokenDisplay.textContent = "";
+            modelsCache = null;
+        }
+    } catch (e) {
+        addError("Failed to switch model");
+    }
+    modelDropdown.classList.add("hidden");
+}

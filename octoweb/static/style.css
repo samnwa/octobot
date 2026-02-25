@@ -73,6 +73,120 @@ header {
     text-overflow: ellipsis;
 }
 
+.header-info {
+    position: relative;
+}
+
+.model-trigger {
+    cursor: pointer;
+    color: var(--accent-cyan);
+    transition: opacity 0.2s;
+}
+
+.model-trigger:hover {
+    opacity: 0.8;
+}
+
+.model-caret {
+    font-size: 9px;
+    vertical-align: middle;
+    opacity: 0.6;
+}
+
+.model-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 6px;
+    width: 340px;
+    max-height: 400px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    z-index: 200;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.model-dropdown.hidden {
+    display: none;
+}
+
+.model-dropdown-header {
+    padding: 8px 12px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border-color);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    flex-shrink: 0;
+}
+
+.model-list {
+    overflow-y: auto;
+    flex: 1;
+}
+
+.model-loading {
+    padding: 12px;
+    color: var(--text-secondary);
+    font-size: 11px;
+}
+
+.model-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    cursor: pointer;
+    transition: background 0.15s;
+    border-bottom: 1px solid var(--border-color);
+    gap: 8px;
+}
+
+.model-item:last-child {
+    border-bottom: none;
+}
+
+.model-item:hover {
+    background: var(--bg-tertiary);
+}
+
+.model-item.active {
+    background: var(--accent-cyan-dim);
+}
+
+.model-item-name {
+    color: var(--text-primary);
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+}
+
+.model-item.active .model-item-name {
+    color: var(--accent-cyan);
+}
+
+.model-item-meta {
+    color: var(--text-secondary);
+    font-size: 10px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.model-item-check {
+    color: var(--accent-cyan);
+    font-size: 12px;
+    flex-shrink: 0;
+    width: 16px;
+    text-align: center;
+}
+
 .header-actions {
     display: flex;
     align-items: center;
@@ -699,7 +813,17 @@ main::-webkit-scrollbar-thumb,
 
     .header-meta {
         font-size: 10px;
-        max-width: 120px;
+        max-width: 160px;
+    }
+
+    .model-dropdown {
+        position: fixed;
+        top: auto;
+        bottom: 60px;
+        left: 8px;
+        right: 8px;
+        width: auto;
+        max-height: 60vh;
     }
 
     .token-display {
