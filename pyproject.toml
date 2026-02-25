@@ -13,5 +13,8 @@ dependencies = [
     "trafilatura>=2.0.0",
 ]
 
+[tool.setuptools.packages.find]
+include = ["octobot*", "octoweb*"]
+
 [project.scripts]
 octobot = "octobot.cli:main"

@@ -12,7 +12,11 @@ echo ""
 
 python3 -c "import anthropic, flask, httpx, rich" 2>/dev/null || {
     echo "  Installing dependencies..."
-    pip install . --quiet
+    if [ -f requirements.txt ]; then
+        pip install -r requirements.txt --quiet
+    else
+        pip install . --quiet
+    fi
     python3 -m playwright install chromium --quiet 2>/dev/null || true
 }
 
