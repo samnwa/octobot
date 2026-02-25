@@ -41,8 +41,6 @@ start.bat
 ./start.sh
 ```
 
-**Replit** -- just click the **Run** button at the top.
-
 Both scripts install dependencies automatically on first run and open the web interface.
 
 ### Step 3: Paste your key and go
@@ -303,7 +301,7 @@ This tells Playwright to use your real Chrome profile with all your cookies and 
 1. On the first browser tool call, Playwright launches a headless Chromium instance
 2. The browser stays open so you can chain interactions (navigate, snapshot, fill form, click submit, verify)
 3. The browser auto-closes on `/reset`, `/quit`, or exit
-4. On NixOS/Replit, library paths are auto-discovered via `ldd` and `nix-store`
+4. On NixOS, library paths are auto-discovered via `ldd` and `nix-store`
 
 ### Cross-platform
 
