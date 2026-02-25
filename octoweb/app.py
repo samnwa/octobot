@@ -326,6 +326,52 @@ def api_model():
     return jsonify({"model": agent.model, "persisted": persist})
 
 
+@app.route("/api/settings", methods=["GET", "POST"])
+def api_settings():
+    from octobot.config import load_config, save_config
+    import octobot.agent as agent_module
+    agent = get_agent()
+    config = load_config()
+
+    if request.method == "GET":
+        return jsonify({
+            "api_timeout": config.get("api_timeout", 60),
+            "retries_per_model": config.get("retries_per_model", 0),
+            "model": agent.model,
+        })
+
+    data = request.get_json()
+    changed = False
+
+    if "api_timeout" in data:
+        timeout = max(10, min(300, int(data["api_timeout"])))
+        config["api_timeout"] = timeout
+        agent_module.API_TIMEOUT = timeout
+        from anthropic import Anthropic
+        agent.client = Anthropic(
+            api_key=agent.api_key,
+            base_url="https://api.synthetic.new/anthropic",
+            timeout=timeout,
+        )
+        changed = True
+
+    if "retries_per_model" in data:
+        retries = max(0, min(5, int(data["retries_per_model"])))
+        config["retries_per_model"] = retries
+        agent._default_retries = retries
+        changed = True
+
+    if "model" in data and data["model"].strip():
+        config["model"] = data["model"].strip()
+        agent.model = data["model"].strip()
+        changed = True
+
+    if changed:
+        save_config(config)
+
+    return jsonify({"status": "ok"})
+
+
 @app.route("/api/setup", methods=["GET", "POST"])
 def api_setup():
     from octobot.config import has_api_key, load_config, save_config

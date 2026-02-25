@@ -35,6 +35,14 @@ const queueListEl = document.getElementById("queue-list");
 const queueInput = document.getElementById("queue-input");
 const queueAddBtn = document.getElementById("queue-add-btn");
 const queueBadge = document.getElementById("queue-badge");
+const settingsBtn = document.getElementById("settings-btn");
+const settingsPanel = document.getElementById("settings-panel");
+const settingsClose = document.getElementById("settings-close");
+const settingTimeout = document.getElementById("setting-timeout");
+const settingRetries = document.getElementById("setting-retries");
+const settingModel = document.getElementById("setting-model");
+const settingsSave = document.getElementById("settings-save");
+const settingsMsg = document.getElementById("settings-msg");
 
 let commands = [];
 let modelsCache = null;
@@ -332,12 +340,11 @@ function escapeHtml(text) {
 
 filesBtn.addEventListener("click", () => {
     const isHidden = filePanel.classList.contains("hidden");
-    filePanel.classList.toggle("hidden", !isHidden);
-    filesBtn.classList.toggle("active", isHidden);
+    closeAllPanels();
     if (isHidden) {
+        filePanel.classList.remove("hidden");
+        filesBtn.classList.add("active");
         loadFiles();
-        queuePanel.classList.add("hidden");
-        queueBtn.classList.remove("active");
     }
 });
 
@@ -501,6 +508,11 @@ document.addEventListener("keydown", (e) => {
             fileViewer.classList.add("hidden");
             return;
         }
+        if (!settingsPanel.classList.contains("hidden")) {
+            settingsPanel.classList.add("hidden");
+            settingsBtn.classList.remove("active");
+            return;
+        }
         if (!queuePanel.classList.contains("hidden")) {
             queuePanel.classList.add("hidden");
             queueBtn.classList.remove("active");
@@ -653,11 +665,11 @@ function onFileWritten(path) {
 
 queueBtn.addEventListener("click", () => {
     const isHidden = queuePanel.classList.contains("hidden");
-    queuePanel.classList.toggle("hidden", !isHidden);
-    queueBtn.classList.toggle("active", isHidden);
-    if (!isHidden) return;
-    filePanel.classList.add("hidden");
-    filesBtn.classList.remove("active");
+    closeAllPanels();
+    if (isHidden) {
+        queuePanel.classList.remove("hidden");
+        queueBtn.classList.add("active");
+    }
 });
 
 queueClose.addEventListener("click", () => {
@@ -746,6 +758,82 @@ function updateQueueBadge() {
         queueBadge.classList.add("hidden");
     }
 }
+
+function closeAllPanels() {
+    settingsPanel.classList.add("hidden");
+    settingsBtn.classList.remove("active");
+    queuePanel.classList.add("hidden");
+    queueBtn.classList.remove("active");
+    filePanel.classList.add("hidden");
+    filesBtn.classList.remove("active");
+}
+
+settingsBtn.addEventListener("click", () => {
+    const isHidden = settingsPanel.classList.contains("hidden");
+    closeAllPanels();
+    if (isHidden) {
+        settingsPanel.classList.remove("hidden");
+        settingsBtn.classList.add("active");
+        loadSettings();
+    }
+});
+
+settingsClose.addEventListener("click", () => {
+    settingsPanel.classList.add("hidden");
+    settingsBtn.classList.remove("active");
+});
+
+async function loadSettings() {
+    try {
+        const r = await fetch("/api/settings");
+        const data = await r.json();
+        settingTimeout.value = data.api_timeout || 60;
+        settingRetries.value = data.retries_per_model ?? 0;
+
+        if (!modelsCache) {
+            const mr = await fetch("/api/models");
+            const md = await mr.json();
+            modelsCache = md.models || [];
+        }
+        settingModel.innerHTML = modelsCache.map(m =>
+            `<option value="${escapeHtml(m.id)}"${m.id === data.model ? " selected" : ""}>${escapeHtml(m.id)}</option>`
+        ).join("");
+    } catch (e) {
+        settingModel.innerHTML = '<option>Error loading</option>';
+    }
+}
+
+settingsSave.addEventListener("click", async () => {
+    settingsMsg.classList.add("hidden");
+    try {
+        const r = await fetch("/api/settings", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                api_timeout: parseInt(settingTimeout.value) || 60,
+                retries_per_model: parseInt(settingRetries.value) || 0,
+                model: settingModel.value,
+            }),
+        });
+        const data = await r.json();
+        if (data.status === "ok") {
+            currentModelEl.textContent = settingModel.value;
+            settingsMsg.textContent = "Settings saved";
+            settingsMsg.className = "settings-msg success";
+            setTimeout(() => {
+                settingsPanel.classList.add("hidden");
+                settingsBtn.classList.remove("active");
+                settingsMsg.classList.add("hidden");
+            }, 800);
+        } else {
+            settingsMsg.textContent = data.error || "Save failed";
+            settingsMsg.className = "settings-msg error";
+        }
+    } catch (e) {
+        settingsMsg.textContent = "Connection error";
+        settingsMsg.className = "settings-msg error";
+    }
+});
 
 loadCommands();
 if (messageQueue.length > 0) renderQueue();

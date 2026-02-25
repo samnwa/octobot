@@ -97,11 +97,18 @@ def _is_transient_error(e):
     return False
 
 
-API_TIMEOUT = 120
+API_TIMEOUT = 60
 
 
 class Agent:
     def __init__(self, model=None):
+        from octobot.config import load_config
+        global API_TIMEOUT
+        config = load_config()
+        saved_timeout = config.get("api_timeout")
+        if saved_timeout:
+            API_TIMEOUT = max(10, min(300, int(saved_timeout)))
+        self._default_retries = config.get("retries_per_model", 0)
         self.api_key = get_api_key()
         self.model = get_model(model)
         self.client = Anthropic(
@@ -341,8 +348,10 @@ class Agent:
 
         return tool_results, response.stop_reason, loop_detected
 
-    def _call_model(self, model=None, retries=2):
+    def _call_model(self, model=None, retries=None):
         import time as _time
+        if retries is None:
+            retries = self._default_retries
         use_model = model or self.model
         last_error = None
         for attempt in range(1 + retries):
