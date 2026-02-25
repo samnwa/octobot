@@ -20,7 +20,17 @@ SKIP_DIRS = {
     ".mypy_cache", ".ruff_cache", "egg-info", ".eggs",
 }
 
-CORE_PREFIXES = ("octobot/", "octoweb/", ".git/", "__pycache__/", ".local/")
+CORE_PREFIXES = (
+    "octobot/", "octoweb/", ".git/", "__pycache__/", ".local/",
+    "build/", "attached_assets/", ".pythonlibs/",
+)
+
+CORE_FILES = {
+    "main.py", "start.bat", "start.sh",
+    "pyproject.toml", "requirements.txt", "uv.lock",
+    "replit.md", ".replit", "replit.nix",
+    "LICENSE", "CHANGELOG.md", "README.md",
+}
 
 COMMANDS = [
     {"name": "/reset", "description": "Clear conversation history"},
@@ -171,7 +181,7 @@ def api_files():
                     "in_progress": any(t.startswith(rel + "/") for t in _in_progress_files),
                 })
             else:
-                if hide_core and any(rel.startswith(p) for p in CORE_PREFIXES):
+                if hide_core and (any(rel.startswith(p) for p in CORE_PREFIXES) or rel in CORE_FILES):
                     continue
                 try:
                     stat = os.stat(full)
