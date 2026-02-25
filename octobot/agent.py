@@ -184,14 +184,17 @@ class Agent:
                 )
                 return True
 
-        no_text_calls = 0
+        calls_since_text = []
         for entry in reversed(self._tool_call_history):
             if entry == "__TEXT__":
                 break
-            no_text_calls += 1
-        if no_text_calls >= 8:
+            calls_since_text.append(entry)
+        no_text_calls = len(calls_since_text)
+        unique_calls = len(set(calls_since_text))
+
+        if no_text_calls >= 20 and unique_calls < no_text_calls // 2:
             console.print(
-                "[bold red]Loop detected:[/bold red] 8+ tool calls with no text output. Stopping.",
+                "[bold red]Loop detected:[/bold red] Too many repeated tool calls without progress. Stopping.",
             )
             return True
 
