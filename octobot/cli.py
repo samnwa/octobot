@@ -44,7 +44,7 @@ def print_banner(model):
     info.append("  |  ", style="dim")
     info.append(f"{len(TOOL_DEFINITIONS)} tools", style="dim cyan")
     console.print(info)
-    console.print("[dim]  Commands: /tools /skills /reset /model /tokens /stats /octo /help /quit[/dim]\n")
+    console.print("[dim]  Commands: /tools /skills /reset /model /models /tokens /stats /octo /help /quit[/dim]\n")
 
 
 def print_help():
@@ -54,7 +54,8 @@ def print_help():
   [cyan]/tools[/cyan]           List all available tools
   [cyan]/skills[/cyan]          List loaded skills
   [cyan]/reset[/cyan]           Clear conversation history
-  [cyan]/model[/cyan] [name]    Show or switch the current model
+  [cyan]/model[/cyan] [name]    Show or switch model (add --default to persist)
+  [cyan]/models[/cyan]          List all available models from the API
   [cyan]/tokens[/cyan]          Show token usage for this session
   [cyan]/stats[/cyan]           Show router stats (latency, health, failover)
   [cyan]/octo[/cyan]            Toggle the swimming octopus animation
@@ -144,11 +145,61 @@ def main(model, single):
             elif cmd == "/model":
                 parts = user_input.split(maxsplit=1)
                 if len(parts) > 1:
-                    agent.model = parts[1]
+                    model_arg = parts[1].strip()
+                    persist = False
+                    if model_arg.endswith(" --default"):
+                        model_arg = model_arg[:-10].strip()
+                        persist = True
+                    elif model_arg == "--default":
+                        from octobot.config import load_config, save_config
+                        config = load_config()
+                        config["model"] = agent.model
+                        save_config(config)
+                        console.print(f"[green]Saved {agent.model} as default.[/green]\n")
+                        continue
+                    agent.model = model_arg
                     agent.reset()
-                    console.print(f"[green]Switched to model: {agent.model}[/green]\n")
+                    if persist:
+                        from octobot.config import load_config, save_config
+                        config = load_config()
+                        config["model"] = model_arg
+                        save_config(config)
+                        console.print(f"[green]Switched to model: {agent.model} (saved as default)[/green]\n")
+                    else:
+                        console.print(f"[green]Switched to model: {agent.model} (session only)[/green]\n")
                 else:
-                    console.print(f"[dim]Current model: {agent.model}[/dim]\n")
+                    console.print(f"[dim]Current model: {agent.model}[/dim]")
+                    console.print(f"[dim]Use /model <name> to switch (session) or /model <name> --default to persist[/dim]\n")
+                continue
+            elif cmd == "/models":
+                import httpx
+                from octobot.config import get_api_key
+                from rich.table import Table
+                console.print("[dim]Fetching available models...[/dim]")
+                try:
+                    r = httpx.get(
+                        "https://api.synthetic.new/openai/v1/models",
+                        headers={"Authorization": f"Bearer {get_api_key()}"},
+                        timeout=10,
+                    )
+                    data = r.json()
+                    table = Table(title="Available Models", border_style="cyan")
+                    table.add_column("Model ID", style="cyan")
+                    table.add_column("Context", justify="right")
+                    table.add_column("Provider")
+                    table.add_column("Tools", justify="center")
+                    for m in sorted(data.get("data", []), key=lambda x: x.get("id", "")):
+                        mid = m.get("id", "")
+                        ctx = f"{m.get('context_length', 0) // 1024}K"
+                        prov = m.get("provider", "")
+                        feats = m.get("supported_features", [])
+                        tools = "[green]Yes[/green]" if "tools" in feats else "[red]No[/red]"
+                        current = " *" if mid == agent.model else ""
+                        table.add_row(mid + current, ctx, prov, tools)
+                    console.print(table)
+                except Exception as e:
+                    console.print(f"[red]Error fetching models: {e}[/red]")
+                console.print()
                 continue
             elif cmd == "/tokens":
                 console.print(

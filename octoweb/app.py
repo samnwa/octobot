@@ -22,7 +22,8 @@ CORE_PREFIXES = ("octobot/", "octoweb/", ".git/", "__pycache__/", ".local/")
 
 COMMANDS = [
     {"name": "/reset", "description": "Clear conversation history"},
-    {"name": "/model [name]", "description": "Show or switch model"},
+    {"name": "/model [name]", "description": "Switch model (session)"},
+    {"name": "/models", "description": "List available models"},
     {"name": "/tokens", "description": "Show token usage"},
     {"name": "/tools", "description": "List available tools"},
     {"name": "/skills", "description": "List loaded skills"},
@@ -200,6 +201,56 @@ def api_file():
         "extension": ext,
         "touched": path in _touched_files,
     })
+
+
+@app.route("/api/models")
+def api_models():
+    import httpx
+    from octobot.config import get_api_key
+    try:
+        r = httpx.get(
+            "https://api.synthetic.new/openai/v1/models",
+            headers={"Authorization": f"Bearer {get_api_key()}"},
+            timeout=10,
+        )
+        data = r.json()
+        models = []
+        for m in data.get("data", []):
+            models.append({
+                "id": m.get("id", ""),
+                "name": m.get("name", ""),
+                "context_length": m.get("context_length", 0),
+                "provider": m.get("provider", ""),
+                "features": m.get("supported_features", []),
+            })
+        models.sort(key=lambda x: x["id"])
+        return jsonify({"models": models})
+    except Exception as e:
+        return jsonify({"error": str(e), "models": []}), 500
+
+
+@app.route("/api/model", methods=["GET", "POST"])
+def api_model():
+    from octobot.config import load_config, save_config
+    agent = get_agent()
+    if request.method == "GET":
+        return jsonify({"model": agent.model})
+
+    data = request.get_json()
+    new_model = data.get("model", "").strip()
+    persist = data.get("persist", False)
+    if not new_model:
+        return jsonify({"error": "No model specified"}), 400
+
+    agent.model = new_model
+    agent.reset()
+
+    if persist:
+        config = load_config()
+        config["model"] = new_model
+        save_config(config)
+
+    return jsonify({"model": agent.model, "persisted": persist})
 
 
 @app.route("/api/commands")
