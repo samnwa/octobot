@@ -35,8 +35,8 @@ def run_subagent(task, context=None, model=None, max_turns=None):
     console.print(
         Panel(
             f"[bold]Task:[/bold] {task}",
-            title="[bold magenta]Subagent Started[/bold magenta]",
-            border_style="magenta",
+            title="[bold dark_orange]Subagent Started[/bold dark_orange]",
+            border_style="dark_orange",
         )
     )
 
@@ -67,8 +67,8 @@ def run_subagent(task, context=None, model=None, max_turns=None):
                 console.print(
                     Panel(
                         Markdown(block.text),
-                        title="[dim magenta]Subagent[/dim magenta]",
-                        border_style="dim magenta",
+                        title="[dim dark_orange]Subagent[/dim dark_orange]",
+                        border_style="dim dark_orange",
                     )
                 )
 
@@ -78,7 +78,7 @@ def run_subagent(task, context=None, model=None, max_turns=None):
                 summary = json.dumps(inp)
                 if len(summary) > 200:
                     summary = summary[:200] + "..."
-                console.print(f"  [dim magenta]Subagent tool:[/dim magenta] [yellow]{name}[/yellow] {summary}")
+                console.print(f"  [dim dark_orange]Subagent tool:[/dim dark_orange] [yellow]{name}[/yellow] {summary}")
 
                 result = execute_tool(name, inp)
                 result_str = json.dumps(result)
@@ -98,8 +98,8 @@ def run_subagent(task, context=None, model=None, max_turns=None):
     console.print(
         Panel(
             f"Completed in {turns_used} turn(s)",
-            title="[bold magenta]Subagent Finished[/bold magenta]",
-            border_style="magenta",
+            title="[bold dark_orange]Subagent Finished[/bold dark_orange]",
+            border_style="dark_orange",
         )
     )
 
