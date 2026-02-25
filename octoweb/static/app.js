@@ -41,6 +41,10 @@ let modelsCache = null;
 let currentFileContent = "";
 let currentFileExt = "";
 let messageQueue = [];
+try {
+    const saved = localStorage.getItem("octobot_queue");
+    if (saved) messageQueue = JSON.parse(saved);
+} catch(_) {}
 let inProgressFiles = new Set();
 
 marked.setOptions({
@@ -727,6 +731,11 @@ function renderQueue() {
         });
     }
     updateQueueBadge();
+    if (messageQueue.length > 0) {
+        localStorage.setItem("octobot_queue", JSON.stringify(messageQueue));
+    } else {
+        localStorage.removeItem("octobot_queue");
+    }
 }
 
 function updateQueueBadge() {
@@ -739,6 +748,7 @@ function updateQueueBadge() {
 }
 
 loadCommands();
+if (messageQueue.length > 0) renderQueue();
 
 modelTrigger.addEventListener("click", (e) => {
     e.stopPropagation();
