@@ -29,7 +29,7 @@ CORE_FILES = {
     "main.py", "start.bat", "start.sh",
     "pyproject.toml", "requirements.txt", "uv.lock",
     "replit.md", ".replit", "replit.nix",
-    "LICENSE", "CHANGELOG.md", "README.md",
+    "LICENSE", "CHANGELOG.md",
 }
 
 COMMANDS = [
