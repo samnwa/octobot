@@ -22,9 +22,17 @@ const modelTrigger = document.getElementById("model-trigger");
 const modelDropdown = document.getElementById("model-dropdown");
 const modelList = document.getElementById("model-list");
 const currentModelEl = document.getElementById("current-model");
+const statusBar = document.getElementById("status-bar");
+const statusText = document.getElementById("status-text");
+const viewerToggle = document.getElementById("viewer-toggle");
+const togglePreview = document.getElementById("toggle-preview");
+const toggleCode = document.getElementById("toggle-code");
+const viewerPreview = document.getElementById("viewer-preview");
 
 let commands = [];
 let modelsCache = null;
+let currentFileContent = "";
+let currentFileExt = "";
 
 marked.setOptions({
     highlight: function (code, lang) {
@@ -84,17 +92,24 @@ chatForm.addEventListener("submit", async (e) => {
                             }
                             currentText += data.content;
                             currentAssistantEl.innerHTML = marked.parse(currentText);
+                            setStatus("Responding...");
                             break;
                         case "thinking":
                             if (data.text && data.text !== "Thinking...") {
                                 addThinking(data.text);
+                                const preview = data.text.length > 60 ? data.text.slice(0, 60) + "..." : data.text;
+                                setStatus("Thinking: " + preview);
+                            } else {
+                                setStatus("Thinking...");
                             }
                             break;
                         case "tool_use":
                             addToolUse(data.name, data.input);
+                            setStatus("Running: " + data.name);
                             break;
                         case "tool_result":
                             addToolResult(data.name, data.result);
+                            setStatus("Done: " + data.name);
                             break;
                         case "tokens":
                             tokenDisplay.textContent =
@@ -132,7 +147,17 @@ function setProcessing(val) {
     sendBtn.disabled = val;
     messageInput.disabled = val;
     swimmer.classList.toggle("hidden", !val);
-    if (!val) messageInput.focus();
+    if (val) {
+        setStatus("Thinking...");
+    } else {
+        statusBar.classList.add("hidden");
+        messageInput.focus();
+    }
+}
+
+function setStatus(text) {
+    statusText.textContent = text;
+    statusBar.classList.remove("hidden");
 }
 
 function addUserMessage(text) {
@@ -321,22 +346,52 @@ async function openFile(path) {
             return;
         }
         viewerPath.textContent = data.path;
+        currentFileContent = data.content;
+        currentFileExt = data.extension;
+
         const codeEl = viewerContent.querySelector("code");
-        const ext = data.extension;
-        const lang = hljs.getLanguage(ext) ? ext : null;
+        const lang = hljs.getLanguage(currentFileExt) ? currentFileExt : null;
         if (lang) {
             codeEl.innerHTML = hljs.highlight(data.content, { language: lang }).value;
         } else {
             codeEl.textContent = data.content;
         }
+
+        if (currentFileExt === "html" || currentFileExt === "htm") {
+            viewerToggle.classList.remove("hidden");
+            showPreview();
+        } else {
+            viewerToggle.classList.add("hidden");
+            showCode();
+        }
+
         fileViewer.classList.remove("hidden");
     } catch (e) {
         alert("Failed to load file");
     }
 }
 
+function showPreview() {
+    viewerPreview.srcdoc = currentFileContent;
+    viewerPreview.classList.remove("hidden");
+    viewerContent.classList.add("hidden");
+    togglePreview.classList.add("active");
+    toggleCode.classList.remove("active");
+}
+
+function showCode() {
+    viewerPreview.classList.add("hidden");
+    viewerContent.classList.remove("hidden");
+    toggleCode.classList.add("active");
+    togglePreview.classList.remove("active");
+}
+
+togglePreview.addEventListener("click", showPreview);
+toggleCode.addEventListener("click", showCode);
+
 viewerClose.addEventListener("click", () => {
     fileViewer.classList.add("hidden");
+    viewerPreview.srcdoc = "";
 });
 
 document.addEventListener("keydown", (e) => {

@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Classic Chocolate Chip Cookies</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f5f0e8 0%, #e8ddd0 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .recipe-card {
+            background: #fff;
+            max-width: 600px;
+            width: 100%;
+            border-radius: 20px;
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+            overflow: hidden;
+        }
+
+        .recipe-header {
+            background: linear-gradient(135deg, #8B4513 0%, #A0522D 100%);
+            color: #fff;
+            padding: 30px;
+            text-align: center;
+            position: relative;
+        }
+
+        .recipe-header::after {
+            content: '🍪';
+            font-size: 60px;
+            position: absolute;
+            bottom: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #fff;
+            border-radius: 50%;
+            width: 80px;
+            height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .recipe-title {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .recipe-subtitle {
+            font-size: 1rem;
+            opacity: 0.9;
+        }
+
+        .recipe-content {
+            padding: 50px 30px 30px;
+        }
+
+        .recipe-meta {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-bottom: 25px;
+            flex-wrap: wrap;
+        }
+
+        .meta-item {
+            text-align: center;
+        }
+
+        .meta-value {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #8B4513;
+        }
+
+        .meta-label {
+            font-size: 0.85rem;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .section {
+            margin-bottom: 25px;
+        }
+
+        .section-title {
+            font-size: 1.2rem;
+            color: #8B4513;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #e8ddd0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .ingredients-list {
+            list-style: none;
+            columns: 2;
+            column-gap: 30px;
+        }
+
+        .ingredients-list li {
+            padding: 6px 0;
+            color: #444;
+            font-size: 0.95rem;
+            position: relative;
+            padding-left: 20px;
+        }
+
+        .ingredients-list li::before {
+            content: '✓';
+            position: absolute;
+            left: 0;
+            color: #8B4513;
+            font-weight: bold;
+        }
+
+        .instructions-list {
+            list-style: none;
+            counter-reset: step;
+        }
+
+        .instructions-list li {
+            counter-increment: step;
+            padding: 12px 0 12px 45px;
+            color: #444;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            position: relative;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .instructions-list li:last-child {
+            border-bottom: none;
+        }
+
+        .instructions-list li::before {
+            content: counter(step);
+            position: absolute;
+            left: 0;
+            top: 10px;
+            background: #8B4513;
+            color: #fff;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.85rem;
+        }
+
+        .tip-box {
+            background: #fef9f3;
+            border-left: 4px solid #8B4513;
+            padding: 15px 20px;
+            margin-top: 20px;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .tip-box strong {
+            color: #8B4513;
+        }
+
+        .tip-box p {
+            color: #666;
+            font-size: 0.9rem;
+            margin-top: 5px;
+            line-height: 1.5;
+        }
+
+        @media (max-width: 500px) {
+            .ingredients-list {
+                columns: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="recipe-card">
+        <header class="recipe-header">
+            <h1 class="recipe-title">Classic Chocolate Chip Cookies</h1>
+            <p class="recipe-subtitle">Soft, chewy, and utterly delicious</p>
+        </header>
+
+        <div class="recipe-content">
+            <div class="recipe-meta">
+                <div class="meta-item">
+                    <div class="meta-value">30 min</div>
+                    <div class="meta-label">Prep Time</div>
+                </div>
+                <div class="meta-item">
+                    <div class="meta-value">12 min</div>
+                    <div class="meta-label">Cook Time</div>
+                </div>
+                <div class="meta-item">
+                    <div class="meta-value">24</div>
+                    <div class="meta-label">Cookies</div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2 class="section-title">📋 Ingredients</h2>
+                <ul class="ingredients-list">
+                    <li>2¼ cups all-purpose flour</li>
+                    <li>1 tsp baking soda</li>
+                    <li>1 tsp salt</li>
+                    <li>1 cup butter, softened</li>
+                    <li>¾ cup granulated sugar</li>
+                    <li>¾ cup brown sugar</li>
+                    <li>2 large eggs</li>
+                    <li>2 tsp vanilla extract</li>
+                    <li>2 cups chocolate chips</li>
+                    <li>1 cup chopped walnuts (optional)</li>
+                </ul>
+            </div>
+
+            <div class="section">
+                <h2 class="section-title">👨‍🍳 Instructions</h2>
+                <ol class="instructions-list">
+                    <li>Preheat your oven to 375°F (190°C). Line baking sheets with parchment paper.</li>
+                    <li>In a medium bowl, whisk together the flour, baking soda, and salt. Set aside.</li>
+                    <li>In a large bowl, cream together the softened butter, granulated sugar, and brown sugar until light and fluffy (about 3-4 minutes).</li>
+                    <li>Beat in the eggs one at a time, then stir in the vanilla extract.</li>
+                    <li>Gradually blend the dry ingredients into the wet mixture until just combined.</li>
+                    <li>Fold in the chocolate chips and walnuts (if using).</li>
+                    <li>Drop rounded tablespoons of dough onto the prepared baking sheets, spacing them about 2 inches apart.</li>
+                    <li>Bake for 10-12 minutes, or until the edges are golden brown but the centers are still soft.</li>
+                    <li>Let cookies cool on the baking sheet for 5 minutes, then transfer to a wire rack to cool completely.</li>
+                </ol>
+            </div>
+
+            <div class="tip-box">
+                <strong>💡 Pro Tip</strong>
+                <p>For extra chewy cookies, chill the dough for at least 30 minutes before baking. This allows the flavors to meld together and prevents the cookies from spreading too much!</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
