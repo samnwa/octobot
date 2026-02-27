@@ -1,7 +1,13 @@
-from flask import Flask, render_template, jsonify, request
+import json
+import queue
+import threading
+
+from flask import Flask, render_template, jsonify, request, Response
 from synthchat.agents import AGENTS, AGENT_ORDER
 
 app = Flask(__name__)
+
+_stop_event = threading.Event()
 
 
 def _agent_msg(agent_id, content, tool_use=None, mentions=None, ts_offset=0):
@@ -138,11 +144,62 @@ def index():
 
 @app.route("/api/agents")
 def get_agents():
-    return jsonify({
-        "agents": [AGENTS[aid] for aid in AGENT_ORDER]
-    })
+    safe_agents = []
+    for aid in AGENT_ORDER:
+        a = AGENTS[aid]
+        safe_agents.append({
+            "id": a["id"],
+            "name": a["name"],
+            "role": a["role"],
+            "avatar": a["avatar"],
+            "color": a["color"],
+            "description": a["description"],
+        })
+    return jsonify({"agents": safe_agents})
 
 
 @app.route("/api/mock-conversation")
 def get_mock_conversation():
     return jsonify({"messages": MOCK_CONVERSATION})
+
+
+@app.route("/chat", methods=["POST"])
+def chat():
+    from synthchat.engine import run_multi_agent_chat
+
+    data = request.get_json()
+    message = data.get("message", "").strip()
+    if not message:
+        return jsonify({"error": "Empty message"}), 400
+
+    _stop_event.clear()
+    event_queue = queue.Queue()
+
+    def run():
+        try:
+            run_multi_agent_chat(message, event_queue, _stop_event)
+        except Exception as e:
+            event_queue.put(("agent_error", {"agent_id": "system", "message": str(e)}))
+            event_queue.put(("done", {}))
+
+    thread = threading.Thread(target=run, daemon=True)
+    thread.start()
+
+    def generate():
+        while True:
+            try:
+                event_type, data = event_queue.get(timeout=300)
+            except queue.Empty:
+                yield f"event: done\ndata: {{}}\n\n"
+                break
+            yield f"event: {event_type}\ndata: {json.dumps(data)}\n\n"
+            if event_type == "done":
+                break
+
+    return Response(generate(), mimetype="text/event-stream")
+
+
+@app.route("/stop", methods=["POST"])
+def stop():
+    _stop_event.set()
+    return jsonify({"status": "ok"})

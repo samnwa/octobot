@@ -363,6 +363,23 @@ html, body {
     cursor: default;
 }
 
+.tool-name-inline {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--cyan);
+    font-weight: 600;
+}
+
+#send-btn.processing {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+#send-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 .tool-card {
     margin: 8px 0;
     border: 1px solid var(--border);
@@ -573,6 +590,27 @@ html, body {
     .sidebar-toggle {
         display: block;
     }
+}
+
+.feed-divider {
+    display: flex;
+    align-items: center;
+    padding: 16px 20px;
+    color: var(--text-dim);
+    font-size: 12px;
+}
+
+.feed-divider::before,
+.feed-divider::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+}
+
+.feed-divider span {
+    padding: 0 12px;
+    white-space: nowrap;
 }
 
 .message-feed::-webkit-scrollbar {
