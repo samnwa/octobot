@@ -107,12 +107,19 @@ def _build_channel_context(channel_messages, current_agent_id):
         parts.append(f"{label}: {msg['content']}")
 
     transcript = "\n\n".join(parts)
+
+    agent_def = AGENTS.get(current_agent_id, {})
+    if current_agent_id == "recap":
+        instruction = "It's your turn. Summarize everything that was accomplished in this conversation. Produce your summary now."
+    else:
+        instruction = "It's your turn to respond. Read the conversation and contribute based on your role. Respond naturally as if chatting in a team workspace."
+
     return [
-        {"role": "user", "content": f"Here is the team conversation so far:\n\n{transcript}\n\nIt's your turn to respond. Read the conversation and contribute based on your role. Respond naturally as if chatting in a team workspace."},
+        {"role": "user", "content": f"Here is the team conversation so far:\n\n{transcript}\n\n{instruction}"},
     ]
 
 
-def _run_agent_turn(client, model, agent_id, channel_messages, eq, stop_event, channel_id="workspace", max_tool_turns=10):
+def _run_agent_turn(client, model, agent_id, channel_messages, eq, stop_event, channel_id="workspace", max_tool_turns=4):
     agent_def = AGENTS[agent_id]
     system_prompt = agent_def["system"]
     tools = _get_tools_for_agent(agent_id)
