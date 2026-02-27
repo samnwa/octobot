@@ -1013,3 +1013,62 @@ html, body {
 .section-label-toggle:hover {
     color: var(--text);
 }
+
+.document-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    margin: 8px 0;
+    background: #1e2024;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    text-decoration: none;
+    color: var(--text);
+    transition: background 0.15s, border-color 0.15s;
+    cursor: pointer;
+    max-width: 320px;
+}
+
+.document-card:hover {
+    background: var(--msg-hover);
+    border-color: var(--cyan);
+}
+
+.doc-icon {
+    font-size: 24px;
+    flex-shrink: 0;
+}
+
+.doc-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.doc-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--white);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.doc-meta {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.doc-download {
+    font-size: 16px;
+    color: var(--cyan);
+    flex-shrink: 0;
+    opacity: 0.6;
+    transition: opacity 0.15s;
+}
+
+.document-card:hover .doc-download {
+    opacity: 1;
+}

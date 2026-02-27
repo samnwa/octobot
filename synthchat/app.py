@@ -2,11 +2,12 @@ import json
 import queue
 import threading
 
-from flask import Flask, Blueprint, render_template, jsonify, request, Response, redirect
+from flask import Flask, Blueprint, render_template, jsonify, request, Response, redirect, send_from_directory
 from synthchat.agents import AGENTS, AGENT_ORDER, CORE_AGENTS, OPTIONAL_AGENTS
 from synthchat.channels import ChannelStore
 from synthchat.history import load_history, clear_history
 from synthchat.scheduler import ScheduleStore
+from synthchat.documents import DOCUMENTS_DIR
 
 bp = Blueprint("synthchat", __name__,
                template_folder="templates",
@@ -16,9 +17,9 @@ bp = Blueprint("synthchat", __name__,
 _stop_event = threading.Event()
 
 
-def _agent_msg(agent_id, content, tool_use=None, mentions=None, ts_offset=0):
+def _agent_msg(agent_id, content, tool_use=None, mentions=None, ts_offset=0, documents=None):
     a = AGENTS[agent_id]
-    return {
+    msg = {
         "id": f"msg-{agent_id}-{ts_offset}",
         "agent_id": agent_id,
         "agent_name": a["name"],
@@ -31,6 +32,9 @@ def _agent_msg(agent_id, content, tool_use=None, mentions=None, ts_offset=0):
         "is_user": False,
         "ts_offset": ts_offset,
     }
+    if documents:
+        msg["documents"] = documents
+    return msg
 
 
 def _user_msg(content, ts_offset=0):
@@ -155,7 +159,24 @@ MOCK_CONVERSATION = [
     ),
     _agent_msg(
         "recap",
-        "### ✅ Task Complete: Weather Script + Daily Check\n\n**Created:** `weather.py` — a terminal weather tool using the free wttr.in API\n\n**Features:**\n- Current conditions (temperature, humidity, wind, description)\n- 3-day forecast\n- Emoji-enhanced terminal display\n- Proper URL encoding for city names with spaces/special characters\n- Specific error handling (city not found, network errors)\n\n**Scheduled:** Daily weather check reminder set up by Scheduler\n\n**Usage:** `python weather.py San Francisco`\n\n**Team:** Scout found the API, Dev wrote the code, Sage reviewed and caught two issues, Scheduler set up a daily check.",
+        "### \u2705 Task Complete: Weather Script + Daily Check\n\n**Created:** `weather.py` \u2014 a terminal weather tool using the free wttr.in API\n\n**Features:**\n- Current conditions (temperature, humidity, wind, description)\n- 3-day forecast\n- Emoji-enhanced terminal display\n- Proper URL encoding for city names with spaces/special characters\n- Specific error handling (city not found, network errors)\n\n**Scheduled:** Daily weather check reminder set up by Scheduler\n\n**Usage:** `python weather.py San Francisco`\n\n**Team:** Scout found the API, Dev wrote the code, Sage reviewed and caught two issues, Scheduler set up a daily check.\n\nI've also attached a downloadable PDF summary below.",
+        tool_use=[
+            {
+                "tool": "create_document",
+                "input": "weather-script-summary.pdf",
+                "result": "Document created successfully",
+            }
+        ],
+        documents=[
+            {
+                "id": "demo",
+                "filename": "demo_weather-summary.pdf",
+                "display_name": "weather-summary.pdf",
+                "format": "pdf",
+                "size": 1666,
+                "url": "/api/documents/0ebaa7c6/0ebaa7c6_weather-script-summary.pdf",
+            }
+        ],
         ts_offset=12,
     ),
 ]
@@ -254,6 +275,33 @@ def cancel_schedule(schedule_id):
     if store.cancel(schedule_id):
         return jsonify({"status": "cancelled"})
     return jsonify({"error": "Schedule not found"}), 404
+
+
+@bp.route("/api/documents/<doc_id>/<filename>")
+def download_document(doc_id, filename):
+    import os
+    if not filename.startswith(doc_id + "_"):
+        return jsonify({"error": "Invalid document reference"}), 403
+
+    safe_filename = os.path.basename(filename)
+    filepath = os.path.join(DOCUMENTS_DIR, safe_filename)
+    if not os.path.exists(filepath):
+        return jsonify({"error": "Document not found"}), 404
+
+    mime_map = {
+        ".csv": "text/csv",
+        ".html": "text/html",
+        ".pdf": "application/pdf",
+        ".png": "image/png",
+    }
+    ext = os.path.splitext(safe_filename)[1].lower()
+    mimetype = mime_map.get(ext, "application/octet-stream")
+
+    return send_from_directory(
+        DOCUMENTS_DIR, safe_filename,
+        mimetype=mimetype,
+        as_attachment=True,
+    )
 
 
 @bp.route("/api/mock-conversation")

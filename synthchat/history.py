@@ -34,6 +34,9 @@ def save_message(channel_id, msg):
         "timestamp": msg.get("timestamp", time.time()),
     }
 
+    if msg.get("documents"):
+        entry["documents"] = msg["documents"]
+
     messages.append(entry)
 
     with open(path, "w") as f:

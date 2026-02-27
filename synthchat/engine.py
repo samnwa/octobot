@@ -12,6 +12,7 @@ from octobot.router import record_success, record_failure, get_fallbacks
 from synthchat.agents import AGENTS
 from synthchat.channels import ChannelStore
 from synthchat.scheduler import SCHEDULER_TOOL_DEFINITIONS, execute_scheduler_tool
+from synthchat.documents import DOCUMENT_TOOL_DEFINITIONS, execute_document_tool
 from synthchat.history import save_message, load_history
 
 _MENTION_RE = re.compile(r'@(\w+)', re.IGNORECASE)
@@ -19,6 +20,7 @@ _MENTION_RE = re.compile(r'@(\w+)', re.IGNORECASE)
 _AGENT_NAME_TO_ID = {a["name"].lower(): aid for aid, a in AGENTS.items()}
 
 _SCHEDULER_TOOL_NAMES = {t["name"] for t in SCHEDULER_TOOL_DEFINITIONS}
+_DOCUMENT_TOOL_NAMES = {t["name"] for t in DOCUMENT_TOOL_DEFINITIONS}
 
 _channel_store = None
 
@@ -44,6 +46,9 @@ def _get_tools_for_agent(agent_id):
                 "input_schema": {**t["input_schema"]},
             })
     for t in SCHEDULER_TOOL_DEFINITIONS:
+        if t["name"] in allowed:
+            tools.append(t)
+    for t in DOCUMENT_TOOL_DEFINITIONS:
         if t["name"] in allowed:
             tools.append(t)
     return tools
@@ -134,6 +139,7 @@ def _run_agent_turn(client, model, agent_id, channel_messages, eq, stop_event, c
     }))
 
     all_text_parts = []
+    created_documents = []
 
     for tool_turn in range(max_tool_turns):
         if stop_event and stop_event.is_set():
@@ -179,6 +185,18 @@ def _run_agent_turn(client, model, agent_id, channel_messages, eq, stop_event, c
 
             if tool_name in _SCHEDULER_TOOL_NAMES:
                 result = execute_scheduler_tool(tool_name, tool_input, channel_id)
+            elif tool_name in _DOCUMENT_TOOL_NAMES:
+                result = execute_document_tool(tool_name, tool_input)
+                try:
+                    doc_data = json.loads(result)
+                    if "error" not in doc_data:
+                        created_documents.append(doc_data)
+                        eq.put(("document", {
+                            "agent_id": agent_id,
+                            **doc_data,
+                        }))
+                except (json.JSONDecodeError, TypeError):
+                    pass
             else:
                 result = execute_tool(tool_name, tool_input)
 
@@ -234,6 +252,9 @@ def _run_agent_turn(client, model, agent_id, channel_messages, eq, stop_event, c
         "is_user": False,
         "timestamp": time.time(),
     }
+
+    if created_documents:
+        msg["documents"] = created_documents
 
     eq.put(("typing_clear", {"agent_id": agent_id}))
     eq.put(("message", msg))

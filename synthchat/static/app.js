@@ -29,6 +29,7 @@ let activeChannelId = "workspace";
 let processing = false;
 let msgCounter = 0;
 let pendingToolCards = {};
+let pendingDocuments = {};
 let demoRunning = false;
 
 marked.setOptions({
@@ -95,6 +96,37 @@ window.toggleTool = function (header) {
     arrow.classList.toggle("open");
 };
 
+const FORMAT_ICONS = {
+    csv: "\uD83D\uDCCA",
+    html: "\uD83C\uDF10",
+    pdf: "\uD83D\uDCC4",
+    png: "\uD83D\uDDBC\uFE0F",
+};
+
+function formatFileSize(bytes) {
+    if (bytes < 1024) return bytes + " B";
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+}
+
+function renderDocumentCards(documents) {
+    if (!documents || documents.length === 0) return "";
+    return documents.map(doc => {
+        const icon = FORMAT_ICONS[doc.format] || "\uD83D\uDCC1";
+        const size = formatFileSize(doc.size || 0);
+        const url = BASE_PATH + doc.url;
+        return `
+        <a href="${url}" class="document-card" download>
+            <span class="doc-icon">${icon}</span>
+            <div class="doc-info">
+                <span class="doc-name">${escapeHtml(doc.display_name || doc.filename)}</span>
+                <span class="doc-meta">${doc.format.toUpperCase()} &middot; ${size}</span>
+            </div>
+            <span class="doc-download">&#11015;</span>
+        </a>`;
+    }).join("");
+}
+
 function renderMessage(msg) {
     const el = document.createElement("div");
     el.className = "message" + (msg.is_user ? " user-msg" : "");
@@ -105,6 +137,7 @@ function renderMessage(msg) {
         : marked.parse(msg.content || "");
     const contentHtml = highlightMentions(rawHtml);
     const toolHtml = renderToolCards(msg.tool_use);
+    const docHtml = renderDocumentCards(msg.documents);
     const ts = msg.timestamp || msg.ts_offset;
 
     el.innerHTML = `
@@ -116,6 +149,7 @@ function renderMessage(msg) {
             </div>
             <div class="msg-content">${contentHtml}</div>
             ${toolHtml}
+            ${docHtml}
         </div>
     `;
 
@@ -425,6 +459,7 @@ function sendUserMessage() {
 function startLiveChat(message) {
     setProcessing(true);
     pendingToolCards = {};
+    pendingDocuments = {};
 
     fetch(BASE_PATH + "/chat", {
         method: "POST",
@@ -517,10 +552,20 @@ function handleSSEEvent(type, data) {
             break;
         }
 
+        case "document": {
+            if (!pendingDocuments[data.agent_id]) {
+                pendingDocuments[data.agent_id] = [];
+            }
+            pendingDocuments[data.agent_id].push(data);
+            break;
+        }
+
         case "message": {
             clearTyping();
             const toolCards = pendingToolCards[data.agent_id] || [];
             pendingToolCards[data.agent_id] = [];
+            const docs = pendingDocuments[data.agent_id] || data.documents || [];
+            pendingDocuments[data.agent_id] = [];
 
             renderMessage({
                 agent_id: data.agent_id,
@@ -530,6 +575,7 @@ function handleSSEEvent(type, data) {
                 role: data.role,
                 content: data.content,
                 tool_use: toolCards,
+                documents: docs,
                 mentions: data.mentions || [],
                 is_user: false,
             });

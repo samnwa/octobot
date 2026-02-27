@@ -35,6 +35,7 @@ synthchat/
   engine.py              - Multi-agent orchestration engine, per-channel agent roster, tool execution, history persistence
   channels.py            - ChannelStore — per-channel agent rosters, persisted to ~/.octobot/synthchat/channels.json
   scheduler.py           - ScheduleStore + 3 scheduler tools (schedule_task, list_schedules, cancel_schedule)
+  documents.py           - Document generation tool (create_document): CSV, HTML, PDF (fpdf2), PNG (Pillow); stored in ~/.octobot/synthchat/documents/
   history.py             - Per-channel conversation persistence to ~/.octobot/synthchat/history/<channel_id>.json
   templates/synthchat.html - SynthChat UI template (channels sidebar, agent list, create-channel modal, schedules)
   static/app.js          - Frontend JS (channels, history, SSE live chat, mock demo, schedule sidebar)
