@@ -3,7 +3,10 @@ import queue
 import threading
 
 from flask import Flask, Blueprint, render_template, jsonify, request, Response, redirect
-from synthchat.agents import AGENTS, AGENT_ORDER
+from synthchat.agents import AGENTS, AGENT_ORDER, CORE_AGENTS, OPTIONAL_AGENTS
+from synthchat.channels import ChannelStore
+from synthchat.history import load_history, clear_history
+from synthchat.scheduler import ScheduleStore
 
 bp = Blueprint("synthchat", __name__,
                template_folder="templates",
@@ -128,14 +131,32 @@ MOCK_CONVERSATION = [
     ),
     _agent_msg(
         "otto",
-        "Excellent work, team! @Recap, wrap it up.",
-        mentions=["recap"],
+        "Excellent work, team! One more thing — @Scheduler, let's set up a daily weather check reminder. @Recap, wrap it up when Scheduler is done.",
+        mentions=["scheduler", "recap"],
         ts_offset=9,
     ),
     _agent_msg(
-        "recap",
-        "### ✅ Task Complete: Weather Script\n\n**Created:** `weather.py` — a terminal weather tool using the free wttr.in API\n\n**Features:**\n- Current conditions (temperature, humidity, wind, description)\n- 3-day forecast\n- Emoji-enhanced terminal display\n- Proper URL encoding for city names with spaces/special characters\n- Specific error handling (city not found, network errors)\n\n**Usage:** `python weather.py San Francisco`\n\n**Team:** Scout found the API, Dev wrote the code, Sage reviewed and caught two issues that were fixed.",
+        "scheduler",
+        "On it! Setting up a daily weather check.",
+        tool_use=[
+            {
+                "tool": "schedule_task",
+                "input": '{"name": "Daily Weather Check", "frequency": "daily", "action": "Run python weather.py London and report conditions"}',
+                "result": '{"status": "created", "schedule": {"name": "Daily Weather Check", "frequency": "daily"}}',
+            }
+        ],
         ts_offset=10,
+    ),
+    _agent_msg(
+        "scheduler",
+        "Done! I've created a **daily** scheduled task:\n- **Name:** Daily Weather Check\n- **Frequency:** Every day\n- **Action:** Run the weather script and report current conditions\n\nYou can view or cancel this in the Schedules section of the sidebar. @Otto, all set!",
+        mentions=["otto"],
+        ts_offset=11,
+    ),
+    _agent_msg(
+        "recap",
+        "### ✅ Task Complete: Weather Script + Daily Check\n\n**Created:** `weather.py` — a terminal weather tool using the free wttr.in API\n\n**Features:**\n- Current conditions (temperature, humidity, wind, description)\n- 3-day forecast\n- Emoji-enhanced terminal display\n- Proper URL encoding for city names with spaces/special characters\n- Specific error handling (city not found, network errors)\n\n**Scheduled:** Daily weather check reminder set up by Scheduler\n\n**Usage:** `python weather.py San Francisco`\n\n**Team:** Scout found the API, Dev wrote the code, Sage reviewed and caught two issues, Scheduler set up a daily check.",
+        ts_offset=12,
     ),
 ]
 
@@ -161,6 +182,80 @@ def get_agents():
     return jsonify({"agents": safe_agents})
 
 
+@bp.route("/api/available-agents")
+def get_available_agents():
+    agents = []
+    for aid in AGENT_ORDER:
+        a = AGENTS[aid]
+        agents.append({
+            "id": a["id"],
+            "name": a["name"],
+            "role": a["role"],
+            "avatar": a["avatar"],
+            "color": a["color"],
+            "description": a["description"],
+            "is_core": aid in CORE_AGENTS,
+        })
+    return jsonify({"agents": agents})
+
+
+@bp.route("/api/channels")
+def list_channels():
+    store = ChannelStore()
+    channels = store.list()
+    return jsonify({"channels": channels})
+
+
+@bp.route("/api/channels", methods=["POST"])
+def create_channel():
+    data = request.get_json()
+    name = data.get("name", "").strip()
+    if not name:
+        return jsonify({"error": "Channel name is required"}), 400
+    description = data.get("description", "")
+    agent_ids = data.get("agent_ids", list(AGENT_ORDER))
+    store = ChannelStore()
+    channel = store.create(name, description, agent_ids)
+    return jsonify({"channel": channel}), 201
+
+
+@bp.route("/api/channels/<channel_id>", methods=["DELETE"])
+def delete_channel(channel_id):
+    store = ChannelStore()
+    if store.delete(channel_id):
+        clear_history(channel_id)
+        return jsonify({"status": "deleted"})
+    return jsonify({"error": "Cannot delete this channel"}), 400
+
+
+@bp.route("/api/channels/<channel_id>/history")
+def get_channel_history(channel_id):
+    messages = load_history(channel_id)
+    return jsonify({"messages": messages})
+
+
+@bp.route("/api/channels/<channel_id>/history", methods=["DELETE"])
+def clear_channel_history(channel_id):
+    clear_history(channel_id)
+    return jsonify({"status": "cleared"})
+
+
+@bp.route("/api/schedules")
+def list_schedules():
+    store = ScheduleStore()
+    channel_id = request.args.get("channel_id")
+    schedules = store.list(channel_id=channel_id)
+    return jsonify({"schedules": schedules})
+
+
+@bp.route("/api/schedules/<schedule_id>", methods=["DELETE"])
+def cancel_schedule(schedule_id):
+    store = ScheduleStore()
+    if store.cancel(schedule_id):
+        return jsonify({"status": "cancelled"})
+    return jsonify({"error": "Schedule not found"}), 404
+
+
 @bp.route("/api/mock-conversation")
 def get_mock_conversation():
     return jsonify({"messages": MOCK_CONVERSATION})
@@ -172,6 +267,7 @@ def chat():
 
     data = request.get_json()
     message = data.get("message", "").strip()
+    channel_id = data.get("channel_id", "workspace")
     if not message:
         return jsonify({"error": "Empty message"}), 400
 
@@ -180,7 +276,7 @@ def chat():
 
     def run():
         try:
-            run_multi_agent_chat(message, event_queue, _stop_event)
+            run_multi_agent_chat(message, event_queue, _stop_event, channel_id=channel_id)
         except Exception as e:
             event_queue.put(("agent_error", {"agent_id": "system", "message": str(e)}))
             event_queue.put(("done", {}))

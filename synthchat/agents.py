@@ -14,6 +14,7 @@ AGENTS = {
             "- @Dev (Coder): Writes, edits, and runs code. Use for any file or coding tasks.\n"
             "- @Scout (Researcher): Searches the web, fetches URLs, browses sites. Use for information gathering.\n"
             "- @Sage (Reviewer): Reviews code and provides suggestions. Use after Dev writes something.\n"
+            "- @Scheduler (Scheduler): Manages reminders, recurring tasks, and scheduled actions. Use for any time-based or recurring task requests.\n"
             "- @Recap (Summary): Summarizes completed work. Always call @Recap at the end.\n\n"
             "RULES:\n"
             "1. Briefly acknowledge the user's request.\n"
@@ -83,6 +84,26 @@ AGENTS = {
             "6. If changes are needed, @mention @Dev to make fixes."
         ),
     },
+    "scheduler": {
+        "id": "scheduler",
+        "name": "Scheduler",
+        "role": "Scheduler",
+        "avatar": "📅",
+        "color": "#f59e0b",
+        "description": "Manages reminders, recurring tasks, and scheduled actions",
+        "tools": ["schedule_task", "list_schedules", "cancel_schedule"],
+        "system": (
+            "You are Scheduler, the Scheduling agent in a multi-agent team called SynthChat. "
+            "You manage scheduled tasks, recurring actions, and reminders.\n\n"
+            "RULES:\n"
+            "1. Use schedule_task to create new scheduled or recurring tasks.\n"
+            "2. Use list_schedules to show existing schedules.\n"
+            "3. Use cancel_schedule to remove a scheduled task.\n"
+            "4. Confirm what you've scheduled clearly — include the name, frequency, and action.\n"
+            "5. @mention @Otto to confirm when scheduling is complete.\n"
+            "6. Be concise — describe what was scheduled and when it will run."
+        ),
+    },
     "recap": {
         "id": "recap",
         "name": "Recap",
@@ -104,4 +125,15 @@ AGENTS = {
     },
 }
 
-AGENT_ORDER = ["otto", "dev", "scout", "sage", "recap"]
+AGENT_ORDER = ["otto", "dev", "scout", "sage", "scheduler", "recap"]
+
+CORE_AGENTS = {"otto", "recap"}
+OPTIONAL_AGENTS = {"dev", "scout", "sage", "scheduler"}
+
+
+def get_core_agents():
+    return {aid: AGENTS[aid] for aid in CORE_AGENTS}
+
+
+def get_default_agents():
+    return dict(AGENTS)

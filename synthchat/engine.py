@@ -10,10 +10,24 @@ from octobot.agent import _parse_xml_tool_calls, _tag_untrusted_content, _UNTRUS
 from octobot.router import record_success, record_failure, get_fallbacks
 
 from synthchat.agents import AGENTS
+from synthchat.channels import ChannelStore
+from synthchat.scheduler import SCHEDULER_TOOL_DEFINITIONS, execute_scheduler_tool
+from synthchat.history import save_message, load_history
 
 _MENTION_RE = re.compile(r'@(\w+)', re.IGNORECASE)
 
 _AGENT_NAME_TO_ID = {a["name"].lower(): aid for aid, a in AGENTS.items()}
+
+_SCHEDULER_TOOL_NAMES = {t["name"] for t in SCHEDULER_TOOL_DEFINITIONS}
+
+_channel_store = None
+
+
+def _get_channel_store():
+    global _channel_store
+    if _channel_store is None:
+        _channel_store = ChannelStore()
+    return _channel_store
 
 
 def _get_tools_for_agent(agent_id):
@@ -29,6 +43,9 @@ def _get_tools_for_agent(agent_id):
                 "description": _build_description_with_examples(t),
                 "input_schema": {**t["input_schema"]},
             })
+    for t in SCHEDULER_TOOL_DEFINITIONS:
+        if t["name"] in allowed:
+            tools.append(t)
     return tools
 
 
@@ -66,7 +83,6 @@ def _call_model(client, model, system_prompt, messages, tools, eq, agent_id):
             if not _is_transient_error(e):
                 raise
         except Exception as e:
-            # Log unexpected errors but still retry on transient issues
             traceback.print_exc()
             record_failure(try_model)
             if not _is_transient_error(e):
@@ -96,7 +112,7 @@ def _build_channel_context(channel_messages, current_agent_id):
     ]
 
 
-def _run_agent_turn(client, model, agent_id, channel_messages, eq, stop_event, max_tool_turns=10):
+def _run_agent_turn(client, model, agent_id, channel_messages, eq, stop_event, channel_id="workspace", max_tool_turns=10):
     agent_def = AGENTS[agent_id]
     system_prompt = agent_def["system"]
     tools = _get_tools_for_agent(agent_id)
@@ -154,7 +170,10 @@ def _run_agent_turn(client, model, agent_id, channel_messages, eq, stop_event, m
                 "input": json.dumps(tool_input)[:200],
             }))
 
-            result = execute_tool(tool_name, tool_input)
+            if tool_name in _SCHEDULER_TOOL_NAMES:
+                result = execute_scheduler_tool(tool_name, tool_input, channel_id)
+            else:
+                result = execute_tool(tool_name, tool_input)
 
             if tool_name in _UNTRUSTED_CONTENT_TOOLS:
                 result = _tag_untrusted_content(result)
@@ -206,15 +225,18 @@ def _run_agent_turn(client, model, agent_id, channel_messages, eq, stop_event, m
         "content": full_text,
         "mentions": mentions,
         "is_user": False,
+        "timestamp": time.time(),
     }
 
     eq.put(("typing_clear", {"agent_id": agent_id}))
     eq.put(("message", msg))
 
+    save_message(channel_id, msg)
+
     return msg
 
 
-def run_multi_agent_chat(user_message, eq, stop_event=None):
+def run_multi_agent_chat(user_message, eq, stop_event=None, channel_id="workspace"):
     try:
         client = Anthropic(
             api_key=get_api_key(),
@@ -223,7 +245,16 @@ def run_multi_agent_chat(user_message, eq, stop_event=None):
         )
         model = get_model()
 
-        channel_messages = []
+        store = _get_channel_store()
+        channel = store.get(channel_id)
+        if not channel:
+            channel = store.get("workspace")
+            channel_id = "workspace"
+
+        channel_agent_ids = set(channel.get("agent_ids", []))
+
+        prior_history = load_history(channel_id)
+        channel_messages = list(prior_history) if prior_history else []
 
         user_msg = {
             "agent_id": "user",
@@ -234,54 +265,70 @@ def run_multi_agent_chat(user_message, eq, stop_event=None):
             "content": user_message,
             "mentions": [],
             "is_user": True,
+            "timestamp": time.time(),
         }
         channel_messages.append(user_msg)
+        save_message(channel_id, user_msg)
 
-        otto_msg = _run_agent_turn(client, model, "otto", channel_messages, eq, stop_event)
+        if "otto" not in channel_agent_ids:
+            eq.put(("agent_error", {
+                "agent_id": "system",
+                "message": "Otto (Orchestrator) is required but not in this channel.",
+            }))
+            eq.put(("done", {}))
+            return
+
+        otto_msg = _run_agent_turn(client, model, "otto", channel_messages, eq, stop_event, channel_id)
         if not otto_msg:
             eq.put(("done", {}))
             return
         channel_messages.append(otto_msg)
 
         mentioned = _extract_mentions(otto_msg["content"])
-        mentioned = [aid for aid in mentioned if aid not in ("otto", "recap")]
+        mentioned = [aid for aid in mentioned if aid not in ("otto", "recap") and aid in channel_agent_ids]
 
         if not mentioned:
-            mentioned = ["dev"]
+            if "dev" in channel_agent_ids:
+                mentioned = ["dev"]
+            else:
+                available = [aid for aid in channel_agent_ids if aid not in ("otto", "recap")]
+                if available:
+                    mentioned = [available[0]]
 
         for agent_id in mentioned:
             if stop_event and stop_event.is_set():
                 break
 
-            msg = _run_agent_turn(client, model, agent_id, channel_messages, eq, stop_event)
+            msg = _run_agent_turn(client, model, agent_id, channel_messages, eq, stop_event, channel_id)
             if msg:
                 channel_messages.append(msg)
 
                 next_mentions = _extract_mentions(msg["content"])
                 for nm in next_mentions:
-                    if nm not in mentioned and nm not in ("otto", "recap", "user") and nm != agent_id:
+                    if nm not in mentioned and nm not in ("otto", "recap", "user") and nm != agent_id and nm in channel_agent_ids:
                         mentioned.append(nm)
 
         if stop_event and stop_event.is_set():
             eq.put(("done", {}))
             return
 
-        has_sage = any(m["agent_id"] == "sage" for m in channel_messages)
-        dev_msgs = [m for m in channel_messages if m["agent_id"] == "dev"]
-        if not has_sage and dev_msgs:
-            sage_msg = _run_agent_turn(client, model, "sage", channel_messages, eq, stop_event)
+        has_sage = any(m.get("agent_id") == "sage" for m in channel_messages if not m.get("is_user"))
+        dev_msgs = [m for m in channel_messages if m.get("agent_id") == "dev" and not m.get("is_user")]
+        if not has_sage and dev_msgs and "sage" in channel_agent_ids:
+            sage_msg = _run_agent_turn(client, model, "sage", channel_messages, eq, stop_event, channel_id)
             if sage_msg:
                 channel_messages.append(sage_msg)
 
                 sage_mentions = _extract_mentions(sage_msg["content"])
-                if "dev" in sage_mentions:
-                    fix_msg = _run_agent_turn(client, model, "dev", channel_messages, eq, stop_event)
+                if "dev" in sage_mentions and "dev" in channel_agent_ids:
+                    fix_msg = _run_agent_turn(client, model, "dev", channel_messages, eq, stop_event, channel_id)
                     if fix_msg:
                         channel_messages.append(fix_msg)
 
-        recap_msg = _run_agent_turn(client, model, "recap", channel_messages, eq, stop_event)
-        if recap_msg:
-            channel_messages.append(recap_msg)
+        if "recap" in channel_agent_ids:
+            recap_msg = _run_agent_turn(client, model, "recap", channel_messages, eq, stop_event, channel_id)
+            if recap_msg:
+                channel_messages.append(recap_msg)
 
         eq.put(("done", {}))
 

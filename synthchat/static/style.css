@@ -643,3 +643,343 @@ html, body {
 .message-feed::-webkit-scrollbar-thumb:hover {
     background: var(--text-dim);
 }
+
+.section-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.add-channel-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 18px;
+    cursor: pointer;
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: background 0.15s, color 0.15s;
+    line-height: 1;
+}
+
+.add-channel-btn:hover {
+    background: var(--sidebar-hover);
+    color: var(--white);
+}
+
+.channel-list {
+    display: flex;
+    flex-direction: column;
+}
+
+.channel-item {
+    position: relative;
+}
+
+.channel-name-text {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.channel-delete {
+    display: none;
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-size: 16px;
+    cursor: pointer;
+    padding: 0 2px;
+    line-height: 1;
+    border-radius: 3px;
+    transition: color 0.15s;
+}
+
+.channel-item:hover .channel-delete {
+    display: block;
+}
+
+.channel-delete:hover {
+    color: #ef4444;
+}
+
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    animation: fadeIn 0.15s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.modal {
+    background: var(--sidebar-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    width: 420px;
+    max-width: 90vw;
+    max-height: 85vh;
+    overflow-y: auto;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    animation: modalSlide 0.2s ease-out;
+}
+
+@keyframes modalSlide {
+    from { transform: translateY(-10px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+}
+
+.modal-header h3 {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--white);
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 20px;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: background 0.15s;
+}
+
+.modal-close:hover {
+    background: var(--sidebar-hover);
+    color: var(--white);
+}
+
+.modal-body {
+    padding: 16px 20px;
+}
+
+.modal-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 6px;
+    margin-top: 12px;
+}
+
+.modal-label:first-child {
+    margin-top: 0;
+}
+
+.modal-input {
+    width: 100%;
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 12px;
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.modal-input:focus {
+    border-color: var(--cyan);
+}
+
+.modal-input::placeholder {
+    color: var(--text-dim);
+}
+
+.agent-checkboxes {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 4px;
+}
+
+.agent-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s;
+    font-size: 13px;
+}
+
+.agent-checkbox:hover {
+    background: var(--sidebar-hover);
+}
+
+.agent-checkbox.core {
+    opacity: 0.7;
+    cursor: default;
+}
+
+.agent-checkbox input[type="checkbox"] {
+    accent-color: var(--cyan);
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+.agent-checkbox.core input[type="checkbox"] {
+    cursor: default;
+}
+
+.agent-cb-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    flex-shrink: 0;
+}
+
+.agent-cb-name {
+    font-weight: 500;
+    color: var(--text);
+}
+
+.agent-cb-role {
+    color: var(--text-dim);
+    font-size: 11px;
+    margin-left: auto;
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 12px 20px 16px;
+}
+
+.modal-btn {
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: opacity 0.15s;
+}
+
+.modal-btn:hover {
+    opacity: 0.85;
+}
+
+.modal-btn-cancel {
+    background: var(--input-bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+}
+
+.modal-btn-create {
+    background: var(--cyan);
+    color: #1a1d21;
+}
+
+.schedule-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.schedule-list.collapsed {
+    display: none;
+}
+
+.schedule-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 18px;
+    font-size: 12px;
+}
+
+.schedule-item:hover {
+    background: var(--sidebar-hover);
+}
+
+.schedule-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.schedule-name {
+    color: var(--text);
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.schedule-freq {
+    font-size: 10px;
+    color: var(--cyan);
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+.schedule-cancel {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-size: 14px;
+    cursor: pointer;
+    padding: 0 2px;
+    line-height: 1;
+    opacity: 0;
+    transition: opacity 0.15s, color 0.15s;
+}
+
+.schedule-item:hover .schedule-cancel {
+    opacity: 1;
+}
+
+.schedule-cancel:hover {
+    color: #ef4444;
+}
+
+.schedule-count {
+    font-size: 11px;
+    color: var(--cyan);
+    margin-left: 4px;
+}
+
+.section-label-toggle {
+    cursor: pointer;
+    transition: color 0.15s;
+}
+
+.section-label-toggle:hover {
+    color: var(--text);
+}
