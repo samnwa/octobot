@@ -37,7 +37,7 @@ LICENSE                  - MIT License
 ## Key Features
 
 - **25 Tools**: file ops (read/write/edit/list/search/tree/file_info/apply_patch), shell (run_command), web (web_fetch with trafilatura, web_search), memory (save/read), subagent (spawn_subagent), browser (navigate/screenshot/click/type/get_text/snapshot/click_ref/type_ref/vision), meta-tools (tool_search, code_execution)
-- **Two Interfaces**: Web UI (Flask on port 5000, file browser sidebar, command menu, stop button, prompt queue with edit/delete/auto-run, in-progress file indicators, settings panel with API timeout/retries/model config, mobile responsive) and terminal CLI
+- **Three Interfaces**: Web UI (Flask on port 5000, file browser sidebar, command menu, stop button, prompt queue with edit/delete/auto-run, in-progress file indicators, settings panel with API timeout/retries/model config, mobile responsive), SynthChat (Slack-like multi-agent workspace on port 3000, `main-chat.py`, in `synthchat/`), and terminal CLI
 - **Efficiency Optimizations** (inspired by Anthropic's advanced tool calling):
   - Deferred tool loading: 13 tools deferred, 12 always loaded; saves tokens per request
   - Code execution sandbox: chain multiple tool calls in one round trip via Python code
