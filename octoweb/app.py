@@ -9,6 +9,9 @@ from octobot.tools import TOOL_DEFINITIONS
 
 app = Flask(__name__)
 
+from synthchat.app import bp as synthchat_bp
+app.register_blueprint(synthchat_bp, url_prefix="/synthchat")
+
 _agent = None
 _agent_lock = threading.Lock()
 _touched_files = set()

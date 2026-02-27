@@ -1,14 +1,3 @@
-(function setSynthChatLink() {
-    const link = document.getElementById("synthchat-btn");
-    if (!link) return;
-    const loc = window.location;
-    if (loc.hostname === "localhost" || loc.hostname === "127.0.0.1") {
-        link.href = loc.protocol + "//" + loc.hostname + ":3000/";
-    } else {
-        link.href = loc.origin.replace(/:\d+$/, ":3000").replace(/-5000\./, "-3000.") + "/";
-    }
-})();
-
 const messagesEl = document.getElementById("messages");
 const chatForm = document.getElementById("chat-form");
 const messageInput = document.getElementById("message-input");

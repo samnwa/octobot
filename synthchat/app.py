@@ -2,10 +2,13 @@ import json
 import queue
 import threading
 
-from flask import Flask, render_template, jsonify, request, Response
+from flask import Flask, Blueprint, render_template, jsonify, request, Response, redirect
 from synthchat.agents import AGENTS, AGENT_ORDER
 
-app = Flask(__name__)
+bp = Blueprint("synthchat", __name__,
+               template_folder="templates",
+               static_folder="static",
+               static_url_path="static")
 
 _stop_event = threading.Event()
 
@@ -137,12 +140,12 @@ MOCK_CONVERSATION = [
 ]
 
 
-@app.route("/")
+@bp.route("/")
 def index():
-    return render_template("index.html")
+    return render_template("synthchat.html")
 
 
-@app.route("/api/agents")
+@bp.route("/api/agents")
 def get_agents():
     safe_agents = []
     for aid in AGENT_ORDER:
@@ -158,12 +161,12 @@ def get_agents():
     return jsonify({"agents": safe_agents})
 
 
-@app.route("/api/mock-conversation")
+@bp.route("/api/mock-conversation")
 def get_mock_conversation():
     return jsonify({"messages": MOCK_CONVERSATION})
 
 
-@app.route("/chat", methods=["POST"])
+@bp.route("/chat", methods=["POST"])
 def chat():
     from synthchat.engine import run_multi_agent_chat
 
@@ -199,7 +202,18 @@ def chat():
     return Response(generate(), mimetype="text/event-stream")
 
 
-@app.route("/stop", methods=["POST"])
+@bp.route("/stop", methods=["POST"])
 def stop():
     _stop_event.set()
     return jsonify({"status": "ok"})
+
+
+def create_standalone_app():
+    app = Flask(__name__)
+    app.register_blueprint(bp, url_prefix="/synthchat")
+
+    @app.route("/")
+    def root_redirect():
+        return redirect("/synthchat/")
+
+    return app

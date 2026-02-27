@@ -1,3 +1,4 @@
+const BASE_PATH = window.location.pathname.replace(/\/$/, "");
 const messageFeed = document.getElementById("message-feed");
 const typingArea = document.getElementById("typing-area");
 const messageInput = document.getElementById("message-input");
@@ -152,7 +153,7 @@ function setProcessing(val) {
 
 async function loadAgents() {
     try {
-        const r = await fetch("/api/agents");
+        const r = await fetch(BASE_PATH + "/api/agents");
         const data = await r.json();
         for (const a of data.agents) {
             agents[a.id] = a;
@@ -184,7 +185,7 @@ function renderAgentList() {
 
 async function playConversation() {
     try {
-        const r = await fetch("/api/mock-conversation");
+        const r = await fetch(BASE_PATH + "/api/mock-conversation");
         const data = await r.json();
         const messages = data.messages;
 
@@ -248,7 +249,7 @@ function startLiveChat(message) {
     setProcessing(true);
     pendingToolCards = {};
 
-    fetch("/chat", {
+    fetch(BASE_PATH + "/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message }),

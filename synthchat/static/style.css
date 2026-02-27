@@ -54,6 +54,20 @@ html, body {
     border-bottom: 1px solid var(--border);
 }
 
+.back-link {
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 18px;
+    padding: 2px 4px;
+    border-radius: 4px;
+    transition: background 0.15s, color 0.15s;
+}
+
+.back-link:hover {
+    background: var(--sidebar-hover);
+    color: var(--white);
+}
+
 .ws-icon {
     font-size: 22px;
 }
