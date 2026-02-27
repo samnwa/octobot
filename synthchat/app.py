@@ -3,7 +3,13 @@ import queue
 import threading
 
 from flask import Flask, Blueprint, render_template, jsonify, request, Response, redirect, send_from_directory
-from synthchat.agents import AGENTS, AGENT_ORDER, CORE_AGENTS, OPTIONAL_AGENTS
+from synthchat.agents import AGENTS, AGENT_ORDER, CORE_AGENTS, OPTIONAL_AGENTS, get_agent_order
+from synthchat.agent_loader import (
+    get_all_agents, save_custom_agent, delete_custom_agent,
+    load_custom_agents, load_community_agents, install_community_agent,
+    publish_agent_to_community, is_agent_installed, is_agent_published,
+    VALID_TOOLS, list_available_skills,
+)
 from synthchat.channels import ChannelStore
 from synthchat.history import load_history, clear_history
 from synthchat.scheduler import ScheduleStore
@@ -189,34 +195,59 @@ def index():
 
 @bp.route("/api/agents")
 def get_agents():
+    all_ag = get_all_agents()
     safe_agents = []
-    for aid in AGENT_ORDER:
-        a = AGENTS[aid]
-        safe_agents.append({
+    def _agent_info(a):
+        return {
             "id": a["id"],
             "name": a["name"],
             "role": a["role"],
             "avatar": a["avatar"],
             "color": a["color"],
-            "description": a["description"],
-        })
+            "description": a.get("description", ""),
+            "tools": a.get("tools", []),
+            "skills": a.get("skills", []),
+            "is_builtin": a.get("is_builtin", False),
+            "is_custom": a.get("is_custom", False),
+        }
+    for aid in AGENT_ORDER:
+        if aid in all_ag:
+            safe_agents.append(_agent_info(all_ag[aid]))
+    for aid, a in all_ag.items():
+        if aid not in AGENT_ORDER:
+            safe_agents.append(_agent_info(a))
     return jsonify({"agents": safe_agents})
 
 
 @bp.route("/api/available-agents")
 def get_available_agents():
+    all_ag = get_all_agents()
     agents = []
     for aid in AGENT_ORDER:
-        a = AGENTS[aid]
-        agents.append({
-            "id": a["id"],
-            "name": a["name"],
-            "role": a["role"],
-            "avatar": a["avatar"],
-            "color": a["color"],
-            "description": a["description"],
-            "is_core": aid in CORE_AGENTS,
-        })
+        if aid in all_ag:
+            a = all_ag[aid]
+            agents.append({
+                "id": a["id"],
+                "name": a["name"],
+                "role": a["role"],
+                "avatar": a["avatar"],
+                "color": a["color"],
+                "description": a.get("description", ""),
+                "is_core": aid in CORE_AGENTS,
+                "is_custom": a.get("is_custom", False),
+            })
+    for aid, a in all_ag.items():
+        if aid not in AGENT_ORDER:
+            agents.append({
+                "id": a["id"],
+                "name": a["name"],
+                "role": a["role"],
+                "avatar": a["avatar"],
+                "color": a["color"],
+                "description": a.get("description", ""),
+                "is_core": False,
+                "is_custom": a.get("is_custom", False),
+            })
     return jsonify({"agents": agents})
 
 
@@ -234,7 +265,7 @@ def create_channel():
     if not name:
         return jsonify({"error": "Channel name is required"}), 400
     description = data.get("description", "")
-    agent_ids = data.get("agent_ids", list(AGENT_ORDER))
+    agent_ids = data.get("agent_ids", get_agent_order())
     store = ChannelStore()
     channel = store.create(name, description, agent_ids)
     return jsonify({"channel": channel}), 201
@@ -302,6 +333,161 @@ def download_document(doc_id, filename):
         mimetype=mimetype,
         as_attachment=True,
     )
+
+
+@bp.route("/api/agents/<agent_id>")
+def get_agent_profile(agent_id):
+    all_ag = get_all_agents()
+    if agent_id not in all_ag:
+        return jsonify({"error": "Agent not found"}), 404
+    a = all_ag[agent_id]
+    profile = {
+        "id": a["id"],
+        "name": a["name"],
+        "role": a["role"],
+        "avatar": a["avatar"],
+        "color": a["color"],
+        "description": a.get("description", ""),
+        "tools": a.get("tools", []),
+        "skills": a.get("skills", []),
+        "system": a.get("system", ""),
+        "is_core": agent_id in CORE_AGENTS,
+        "is_custom": a.get("is_custom", False),
+    }
+    return jsonify({"agent": profile})
+
+
+@bp.route("/api/agents", methods=["POST"])
+def create_agent():
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "Invalid JSON"}), 400
+    required = ["name", "role", "system"]
+    for field in required:
+        if not data.get(field, "").strip():
+            return jsonify({"error": f"'{field}' is required"}), 400
+    config = {
+        "name": data["name"].strip(),
+        "role": data["role"].strip(),
+        "avatar": data.get("avatar", "🤖").strip() or "🤖",
+        "color": data.get("color", "#6b7280").strip() or "#6b7280",
+        "description": data.get("description", "").strip(),
+        "tools": [t for t in data.get("tools", []) if t in VALID_TOOLS],
+        "skills": data.get("skills", []),
+        "system": data["system"].strip(),
+    }
+    try:
+        agent_id = save_custom_agent(config)
+        return jsonify({"agent_id": agent_id, "status": "created"}), 201
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/agents/<agent_id>", methods=["PUT"])
+def update_agent(agent_id):
+    if agent_id in AGENTS:
+        return jsonify({"error": "Cannot edit built-in agents"}), 400
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "Invalid JSON"}), 400
+    required = ["name", "role", "system"]
+    for field in required:
+        if not data.get(field, "").strip():
+            return jsonify({"error": f"'{field}' is required"}), 400
+    config = {
+        "id": agent_id,
+        "name": data["name"].strip(),
+        "role": data["role"].strip(),
+        "avatar": data.get("avatar", "🤖").strip() or "🤖",
+        "color": data.get("color", "#6b7280").strip() or "#6b7280",
+        "description": data.get("description", "").strip(),
+        "tools": [t for t in data.get("tools", []) if t in VALID_TOOLS],
+        "skills": data.get("skills", []),
+        "system": data["system"].strip(),
+    }
+    try:
+        save_custom_agent(config)
+        return jsonify({"agent_id": agent_id, "status": "updated"})
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/agents/<agent_id>", methods=["DELETE"])
+def delete_agent(agent_id):
+    if agent_id in AGENTS:
+        return jsonify({"error": "Cannot delete built-in agents"}), 400
+    try:
+        if delete_custom_agent(agent_id):
+            return jsonify({"status": "deleted"})
+        return jsonify({"error": "Agent not found"}), 404
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/tools")
+def list_tools():
+    tool_categories = {
+        "File System": ["read_file", "write_file", "edit_file", "list_files", "search_files", "tree", "file_info", "apply_patch"],
+        "Execution": ["run_command"],
+        "Web": ["web_search", "web_fetch"],
+        "Documents": ["create_document"],
+        "Scheduling": ["schedule_task", "list_schedules", "cancel_schedule"],
+    }
+    tools = []
+    for category, tool_names in tool_categories.items():
+        for name in tool_names:
+            if name in VALID_TOOLS:
+                tools.append({"name": name, "category": category})
+    return jsonify({"tools": tools})
+
+
+@bp.route("/api/skills")
+def list_skills():
+    skills = list_available_skills()
+    return jsonify({"skills": skills})
+
+
+@bp.route("/api/community/agents")
+def list_community_agents():
+    community = load_community_agents()
+    custom = load_custom_agents()
+    agents = []
+    for aid, a in sorted(community.items()):
+        installed = aid in custom or aid in AGENTS
+        agents.append({
+            "id": a["id"],
+            "name": a["name"],
+            "role": a["role"],
+            "avatar": a["avatar"],
+            "color": a["color"],
+            "description": a.get("description", ""),
+            "tools": a.get("tools", []),
+            "skills": a.get("skills", []),
+            "installed": installed,
+        })
+    return jsonify({"agents": agents})
+
+
+@bp.route("/api/agents/install", methods=["POST"])
+def install_agent():
+    data = request.get_json()
+    agent_id = data.get("agent_id", "").strip()
+    if not agent_id:
+        return jsonify({"error": "agent_id is required"}), 400
+    try:
+        installed_id = install_community_agent(agent_id)
+        return jsonify({"agent_id": installed_id, "status": "installed"}), 201
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/agents/<agent_id>/publish", methods=["POST"])
+def publish_agent(agent_id):
+    try:
+        publish_agent_to_community(agent_id)
+        return jsonify({"agent_id": agent_id, "status": "published"})
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
 
 
 @bp.route("/api/mock-conversation")

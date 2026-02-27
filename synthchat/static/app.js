@@ -213,6 +213,7 @@ async function loadAgents() {
         const r = await fetch(BASE_PATH + "/api/available-agents");
         const data = await r.json();
         availableAgents = data.agents;
+        allAgents = {};
         for (const a of data.agents) {
             allAgents[a.id] = a;
         }
@@ -697,6 +698,598 @@ document.addEventListener("click", (e) => {
 
 schedulesToggle.addEventListener("click", () => {
     schedulesList.classList.toggle("collapsed");
+});
+
+const profilePanel = document.getElementById("profile-panel");
+const profileOverlay = document.getElementById("profile-overlay");
+const profileClose = document.getElementById("profile-close");
+const profilePanelBody = document.getElementById("profile-panel-body");
+
+function openProfilePanel(agentId) {
+    fetch(BASE_PATH + "/api/agents/" + encodeURIComponent(agentId))
+        .then((r) => r.json())
+        .then((data) => {
+            if (data.error) return;
+            const a = data.agent;
+            const badgeClass = a.is_core ? "core" : "custom";
+            const badgeText = a.is_core ? "Core Agent" : "Custom";
+
+            const toolsHtml = a.tools && a.tools.length > 0
+                ? a.tools.map((t) => `<span class="profile-tool-tag">${escapeHtml(t)}</span>`).join("")
+                : '<span class="profile-no-items">No tools</span>';
+
+            const skillsHtml = a.skills && a.skills.length > 0
+                ? a.skills.map((s) => `<span class="profile-skill-tag">${escapeHtml(s)}</span>`).join("")
+                : '<span class="profile-no-items">No skills loaded</span>';
+
+            const actionsHtml = a.is_custom ? `
+                <div class="profile-actions">
+                    <button class="profile-btn profile-btn-edit" onclick="openAgentModal('${escapeHtml(a.id)}')">Edit</button>
+                    <button class="profile-btn profile-btn-delete" onclick="deleteAgent('${escapeHtml(a.id)}')">Delete</button>
+                </div>` : "";
+
+            profilePanelBody.innerHTML = `
+                <div class="profile-hero">
+                    <div class="profile-avatar" style="background:${a.color}">${a.avatar}</div>
+                    <div class="profile-name">${escapeHtml(a.name)}</div>
+                    <div class="profile-role">${escapeHtml(a.role)}</div>
+                    <span class="profile-badge ${badgeClass}">${badgeText}</span>
+                    ${actionsHtml}
+                </div>
+                <p class="profile-description">${escapeHtml(a.description)}</p>
+                <div class="profile-section">
+                    <div class="profile-section-title">Tools</div>
+                    <div class="profile-tools-list">${toolsHtml}</div>
+                </div>
+                <div class="profile-section">
+                    <div class="profile-section-title">Skills</div>
+                    <div class="profile-skills-list">${skillsHtml}</div>
+                </div>
+                <div class="profile-section">
+                    <div class="profile-section-title">System Prompt</div>
+                    <button class="profile-system-toggle" onclick="toggleSystemPrompt(this)">
+                        <span class="toggle-arrow">&#9660;</span>
+                        <span>Show system prompt</span>
+                    </button>
+                    <div class="profile-system-content">${escapeHtml(a.system || "No system prompt defined.")}</div>
+                </div>
+            `;
+
+            profilePanel.classList.add("open");
+            profileOverlay.classList.add("open");
+        })
+        .catch((e) => console.error("Failed to load agent profile:", e));
+}
+
+function closeProfilePanel() {
+    profilePanel.classList.remove("open");
+    profileOverlay.classList.remove("open");
+}
+
+window.toggleSystemPrompt = function (btn) {
+    const content = btn.nextElementSibling;
+    const arrow = btn.querySelector(".toggle-arrow");
+    content.classList.toggle("open");
+    arrow.classList.toggle("open");
+    btn.querySelector("span:last-child").textContent =
+        content.classList.contains("open") ? "Hide system prompt" : "Show system prompt";
+};
+
+profileClose.addEventListener("click", closeProfilePanel);
+profileOverlay.addEventListener("click", closeProfilePanel);
+
+document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && profilePanel.classList.contains("open")) {
+        closeProfilePanel();
+    }
+});
+
+agentListEl.addEventListener("click", (e) => {
+    const agentItem = e.target.closest(".agent-item");
+    if (agentItem) {
+        const agentId = agentItem.dataset.agent;
+        if (agentId) openProfilePanel(agentId);
+    }
+});
+
+const createAgentModal = document.getElementById("create-agent-modal");
+const agentModalTitle = document.getElementById("agent-modal-title");
+const agentModalClose = document.getElementById("agent-modal-close");
+const agentModalCancel = document.getElementById("agent-modal-cancel");
+const agentModalSave = document.getElementById("agent-modal-save");
+const agentNameInput = document.getElementById("agent-name-input");
+const agentRoleInput = document.getElementById("agent-role-input");
+const agentDescInput = document.getElementById("agent-desc-input");
+const agentAvatarInput = document.getElementById("agent-avatar-input");
+const avatarPreview = document.getElementById("avatar-preview");
+const agentColorInput = document.getElementById("agent-color-input");
+const colorSwatches = document.getElementById("color-swatches");
+const agentToolsCheckboxes = document.getElementById("agent-tools-checkboxes");
+const agentSkillsCheckboxes = document.getElementById("agent-skills-checkboxes");
+const agentSystemInput = document.getElementById("agent-system-input");
+const createAgentBtn = document.getElementById("create-agent-btn");
+
+let editingAgentId = null;
+let cachedTools = null;
+let cachedSkills = null;
+
+async function loadToolsAndSkills() {
+    if (!cachedTools) {
+        try {
+            const r = await fetch(BASE_PATH + "/api/tools");
+            const data = await r.json();
+            cachedTools = data.tools || [];
+        } catch (e) {
+            cachedTools = [];
+        }
+    }
+    if (!cachedSkills) {
+        try {
+            const r = await fetch(BASE_PATH + "/api/skills");
+            const data = await r.json();
+            cachedSkills = data.skills || [];
+        } catch (e) {
+            cachedSkills = [];
+        }
+    }
+}
+
+function renderToolCheckboxes(selectedTools) {
+    const selected = new Set(selectedTools || []);
+    let html = "";
+    let lastCategory = "";
+    for (const tool of cachedTools) {
+        if (tool.category !== lastCategory) {
+            lastCategory = tool.category;
+            html += `<div class="agent-tool-category">${escapeHtml(tool.category)}</div>`;
+        }
+        html += `
+        <label class="agent-tool-checkbox">
+            <input type="checkbox" value="${escapeHtml(tool.name)}" ${selected.has(tool.name) ? "checked" : ""}>
+            <span class="agent-tool-name">${escapeHtml(tool.name)}</span>
+        </label>`;
+    }
+    agentToolsCheckboxes.innerHTML = html;
+}
+
+function renderSkillCheckboxes(selectedSkills) {
+    const selected = new Set(selectedSkills || []);
+    if (!cachedSkills || cachedSkills.length === 0) {
+        agentSkillsCheckboxes.innerHTML = '<span class="no-skills-msg">No skills available</span>';
+        return;
+    }
+    agentSkillsCheckboxes.innerHTML = cachedSkills.map(s => `
+        <label class="agent-skill-checkbox">
+            <input type="checkbox" value="${escapeHtml(s.name)}" ${selected.has(s.name) ? "checked" : ""}>
+            <span class="agent-skill-name">${escapeHtml(s.display_name || s.name)}</span>
+            ${s.description ? `<span class="agent-skill-desc">${escapeHtml(s.description)}</span>` : ""}
+        </label>
+    `).join("");
+}
+
+function setSelectedColor(color) {
+    agentColorInput.value = color;
+    avatarPreview.style.background = color;
+    colorSwatches.querySelectorAll(".color-swatch").forEach(sw => {
+        sw.classList.toggle("active", sw.dataset.color === color);
+    });
+}
+
+function generateSystemPrompt(name, role) {
+    return `You are ${name}, a ${role} agent in a multi-agent team called SynthChat.\n\nRULES:\n1. Be concise and helpful.\n2. Use your tools effectively.\n3. Collaborate with other agents when needed.`;
+}
+
+window.openAgentModal = async function openAgentModal(agentId) {
+    await loadToolsAndSkills();
+    editingAgentId = agentId || null;
+
+    if (editingAgentId) {
+        agentModalTitle.textContent = "Edit Agent";
+        agentModalSave.textContent = "Save Changes";
+        try {
+            const r = await fetch(BASE_PATH + "/api/agents/" + encodeURIComponent(editingAgentId));
+            const data = await r.json();
+            if (data.error) return;
+            const a = data.agent;
+            agentNameInput.value = a.name;
+            agentRoleInput.value = a.role;
+            agentDescInput.value = a.description || "";
+            agentAvatarInput.value = a.avatar;
+            avatarPreview.textContent = a.avatar;
+            setSelectedColor(a.color);
+            renderToolCheckboxes(a.tools);
+            renderSkillCheckboxes(a.skills);
+            agentSystemInput.value = a.system || "";
+        } catch (e) {
+            console.error("Failed to load agent for editing:", e);
+            return;
+        }
+    } else {
+        agentModalTitle.textContent = "Create Agent";
+        agentModalSave.textContent = "Create Agent";
+        agentNameInput.value = "";
+        agentRoleInput.value = "";
+        agentDescInput.value = "";
+        agentAvatarInput.value = "";
+        avatarPreview.textContent = "\uD83E\uDD16";
+        setSelectedColor("#4ade80");
+        renderToolCheckboxes([]);
+        renderSkillCheckboxes([]);
+        agentSystemInput.value = "";
+    }
+
+    createAgentModal.style.display = "flex";
+    agentNameInput.focus();
+}
+
+function closeAgentModal() {
+    createAgentModal.style.display = "none";
+    editingAgentId = null;
+}
+
+async function saveAgent() {
+    const name = agentNameInput.value.trim();
+    const role = agentRoleInput.value.trim();
+    const system = agentSystemInput.value.trim();
+
+    if (!name) { agentNameInput.focus(); return; }
+    if (!role) { agentRoleInput.focus(); return; }
+    if (!system) {
+        const gen = generateSystemPrompt(name, role);
+        agentSystemInput.value = gen;
+        agentSystemInput.focus();
+        return;
+    }
+
+    const toolChecks = agentToolsCheckboxes.querySelectorAll("input:checked");
+    const tools = Array.from(toolChecks).map(cb => cb.value);
+    const skillChecks = agentSkillsCheckboxes.querySelectorAll("input:checked");
+    const skills = Array.from(skillChecks).map(cb => cb.value);
+
+    const body = {
+        name,
+        role,
+        avatar: agentAvatarInput.value.trim() || "\uD83E\uDD16",
+        color: agentColorInput.value.trim() || "#6b7280",
+        description: agentDescInput.value.trim(),
+        tools,
+        skills,
+        system,
+    };
+
+    try {
+        let url, method;
+        if (editingAgentId) {
+            url = BASE_PATH + "/api/agents/" + encodeURIComponent(editingAgentId);
+            method = "PUT";
+        } else {
+            url = BASE_PATH + "/api/agents";
+            method = "POST";
+        }
+        const r = await fetch(url, {
+            method,
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+        });
+        const data = await r.json();
+        if (!r.ok) {
+            alert(data.error || "Failed to save agent");
+            return;
+        }
+        closeAgentModal();
+        await loadAgents();
+        renderAgentList(null);
+    } catch (e) {
+        console.error("Failed to save agent:", e);
+        alert("Failed to save agent");
+    }
+}
+
+window.deleteAgent = async function deleteAgent(agentId) {
+    if (!confirm("Delete this agent? This cannot be undone.")) return;
+    try {
+        const r = await fetch(BASE_PATH + "/api/agents/" + encodeURIComponent(agentId), {
+            method: "DELETE",
+        });
+        const data = await r.json();
+        if (!r.ok) {
+            alert(data.error || "Failed to delete agent");
+            return;
+        }
+        closeProfilePanel();
+        await loadAgents();
+        renderAgentList(null);
+    } catch (e) {
+        console.error("Failed to delete agent:", e);
+    }
+}
+
+agentAvatarInput.addEventListener("input", () => {
+    const val = agentAvatarInput.value.trim();
+    avatarPreview.textContent = val || "\uD83E\uDD16";
+});
+
+colorSwatches.addEventListener("click", (e) => {
+    const swatch = e.target.closest(".color-swatch");
+    if (swatch) {
+        e.preventDefault();
+        setSelectedColor(swatch.dataset.color);
+    }
+});
+
+agentColorInput.addEventListener("input", () => {
+    const val = agentColorInput.value.trim();
+    if (/^#[0-9a-fA-F]{6}$/.test(val)) {
+        avatarPreview.style.background = val;
+        colorSwatches.querySelectorAll(".color-swatch").forEach(sw => {
+            sw.classList.toggle("active", sw.dataset.color === val);
+        });
+    }
+});
+
+agentNameInput.addEventListener("input", () => {
+    if (!editingAgentId && !agentSystemInput.value.trim()) {
+        const name = agentNameInput.value.trim();
+        const role = agentRoleInput.value.trim();
+        if (name && role) {
+            agentSystemInput.value = generateSystemPrompt(name, role);
+        }
+    }
+});
+
+agentRoleInput.addEventListener("input", () => {
+    if (!editingAgentId && !agentSystemInput.dataset.userEdited) {
+        const name = agentNameInput.value.trim();
+        const role = agentRoleInput.value.trim();
+        if (name && role) {
+            agentSystemInput.value = generateSystemPrompt(name, role);
+        }
+    }
+});
+
+agentSystemInput.addEventListener("input", () => {
+    agentSystemInput.dataset.userEdited = "true";
+});
+
+createAgentBtn.addEventListener("click", () => openAgentModal(null));
+agentModalClose.addEventListener("click", closeAgentModal);
+agentModalCancel.addEventListener("click", closeAgentModal);
+agentModalSave.addEventListener("click", saveAgent);
+createAgentModal.addEventListener("click", (e) => {
+    if (e.target === createAgentModal) closeAgentModal();
+});
+
+document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && createAgentModal.style.display === "flex") {
+        closeAgentModal();
+    }
+});
+
+const libraryBtn = document.getElementById("library-btn");
+const libraryModal = document.getElementById("library-modal");
+const libraryClose = document.getElementById("library-close");
+const libraryBody = document.getElementById("library-body");
+
+function openLibrary() {
+    libraryModal.style.display = "flex";
+    switchLibraryTab("my-agents");
+}
+
+function closeLibrary() {
+    libraryModal.style.display = "none";
+}
+
+function switchLibraryTab(tabName) {
+    document.querySelectorAll(".library-tab").forEach(t => t.classList.toggle("active", t.dataset.tab === tabName));
+    document.querySelectorAll(".library-tab-content").forEach(c => c.classList.toggle("active", c.id === `tab-${tabName}`));
+
+    if (tabName === "my-agents") loadMyAgentsTab();
+    else if (tabName === "community") loadCommunityTab();
+    else if (tabName === "skills") loadSkillsTab();
+}
+
+async function loadMyAgentsTab() {
+    const container = document.getElementById("tab-my-agents");
+    try {
+        const res = await fetch(`${BASE_PATH}/api/agents`);
+        const data = await res.json();
+        const agents = data.agents || [];
+
+        let html = `<div class="library-section-header"><h3>${agents.length} Agent${agents.length !== 1 ? 's' : ''}</h3><button class="library-create-btn" onclick="closeLibrary(); openAgentModal(null);">+ Create Agent</button></div>`;
+        html += '<div class="library-grid">';
+
+        for (const a of agents) {
+            const badge = a.is_builtin ? '<span class="library-card-badge badge-builtin">Built-in</span>' : '<span class="library-card-badge badge-custom">Custom</span>';
+            const toolCount = a.tools ? a.tools.length : 0;
+
+            let actions = '';
+            if (a.is_custom) {
+                actions = `
+                    <button class="library-card-btn btn-edit" onclick="closeLibrary(); openAgentModal('${a.id}');">Edit</button>
+                    <button class="library-card-btn btn-publish" onclick="publishAgent('${a.id}')" id="publish-${a.id}">Publish</button>
+                    <button class="library-card-btn btn-delete" onclick="libraryDeleteAgent('${a.id}')">Delete</button>`;
+            } else {
+                actions = `<button class="library-card-btn btn-installed" disabled>Core Agent</button>`;
+            }
+
+            html += `
+                <div class="library-card">
+                    <div class="library-card-header">
+                        <div class="library-card-avatar" style="background:${a.color}20">${a.avatar}</div>
+                        <div class="library-card-info">
+                            <p class="library-card-name">${a.name}</p>
+                            <p class="library-card-role">${a.role}</p>
+                        </div>
+                    </div>
+                    <p class="library-card-desc">${a.description || 'No description'}</p>
+                    <div class="library-card-meta">${badge}<span class="library-card-badge badge-tools">${toolCount} tools</span></div>
+                    <div class="library-card-actions">${actions}</div>
+                </div>`;
+        }
+        html += '</div>';
+        container.innerHTML = html;
+
+        checkPublishStatus(agents.filter(a => a.is_custom));
+    } catch (err) {
+        container.innerHTML = '<div class="library-empty"><p>Failed to load agents</p></div>';
+    }
+}
+
+async function checkPublishStatus(customAgents) {
+    try {
+        const res = await fetch(`${BASE_PATH}/api/community/agents`);
+        const data = await res.json();
+        const communityIds = new Set((data.agents || []).map(a => a.id));
+        for (const a of customAgents) {
+            const btn = document.getElementById(`publish-${a.id}`);
+            if (btn && communityIds.has(a.id)) {
+                btn.textContent = "Published";
+                btn.className = "library-card-btn btn-published";
+                btn.disabled = true;
+            }
+        }
+    } catch (e) {}
+}
+
+async function loadCommunityTab() {
+    const container = document.getElementById("tab-community");
+    try {
+        const res = await fetch(`${BASE_PATH}/api/community/agents`);
+        const data = await res.json();
+        const agents = data.agents || [];
+
+        if (agents.length === 0) {
+            container.innerHTML = '<div class="library-empty"><p>No community agents yet.</p><p>Create an agent and click Publish to share it!</p></div>';
+            return;
+        }
+
+        let html = `<div class="library-section-header"><h3>${agents.length} Community Agent${agents.length !== 1 ? 's' : ''}</h3></div>`;
+        html += '<div class="library-grid">';
+
+        for (const a of agents) {
+            const toolCount = a.tools ? a.tools.length : 0;
+            const installBtn = a.installed
+                ? `<button class="library-card-btn btn-installed" disabled>Installed</button>`
+                : `<button class="library-card-btn btn-install" onclick="installAgent('${a.id}')">+ Add to Library</button>`;
+
+            html += `
+                <div class="library-card" id="community-card-${a.id}">
+                    <div class="library-card-header">
+                        <div class="library-card-avatar" style="background:${a.color}20">${a.avatar}</div>
+                        <div class="library-card-info">
+                            <p class="library-card-name">${a.name}</p>
+                            <p class="library-card-role">${a.role}</p>
+                        </div>
+                    </div>
+                    <p class="library-card-desc">${a.description || 'No description'}</p>
+                    <div class="library-card-meta"><span class="library-card-badge badge-tools">${toolCount} tools</span></div>
+                    <div class="library-card-actions">${installBtn}</div>
+                </div>`;
+        }
+        html += '</div>';
+        container.innerHTML = html;
+    } catch (err) {
+        container.innerHTML = '<div class="library-empty"><p>Failed to load community agents</p></div>';
+    }
+}
+
+async function loadSkillsTab() {
+    const container = document.getElementById("tab-skills");
+    try {
+        const res = await fetch(`${BASE_PATH}/api/skills`);
+        const data = await res.json();
+        const skills = data.skills || [];
+
+        if (skills.length === 0) {
+            container.innerHTML = '<div class="library-empty"><p>No skills available yet.</p><p>Add SKILL.md files to ~/.octobot/skills/ to create skills.</p></div>';
+            return;
+        }
+
+        let html = `<div class="library-section-header"><h3>${skills.length} Skill${skills.length !== 1 ? 's' : ''}</h3></div>`;
+        for (const s of skills) {
+            html += `
+                <div class="skill-card">
+                    <p class="skill-card-name">${s.display_name || s.name}</p>
+                    <p class="skill-card-desc">${s.description || 'No description available'}</p>
+                </div>`;
+        }
+        container.innerHTML = html;
+    } catch (err) {
+        container.innerHTML = '<div class="library-empty"><p>Failed to load skills</p></div>';
+    }
+}
+
+async function installAgent(agentId) {
+    try {
+        const res = await fetch(`${BASE_PATH}/api/agents/install`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ agent_id: agentId }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+            await loadAgents();
+            loadCommunityTab();
+        } else {
+            alert(data.error || "Failed to install agent");
+        }
+    } catch (err) {
+        alert("Failed to install agent");
+    }
+}
+
+async function publishAgent(agentId) {
+    try {
+        const res = await fetch(`${BASE_PATH}/api/agents/${agentId}/publish`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+        });
+        const data = await res.json();
+        if (res.ok) {
+            const btn = document.getElementById(`publish-${agentId}`);
+            if (btn) {
+                btn.textContent = "Published";
+                btn.className = "library-card-btn btn-published";
+                btn.disabled = true;
+            }
+        } else {
+            alert(data.error || "Failed to publish agent");
+        }
+    } catch (err) {
+        alert("Failed to publish agent");
+    }
+}
+
+async function libraryDeleteAgent(agentId) {
+    if (!confirm("Delete this agent? This cannot be undone.")) return;
+    try {
+        const res = await fetch(`${BASE_PATH}/api/agents/${agentId}`, { method: "DELETE" });
+        if (res.ok) {
+            await loadAgents();
+            loadMyAgentsTab();
+        } else {
+            const data = await res.json();
+            alert(data.error || "Failed to delete agent");
+        }
+    } catch (err) {
+        alert("Failed to delete agent");
+    }
+}
+
+libraryBtn.addEventListener("click", openLibrary);
+libraryClose.addEventListener("click", closeLibrary);
+libraryModal.addEventListener("click", (e) => {
+    if (e.target === libraryModal) closeLibrary();
+});
+
+document.querySelectorAll(".library-tab").forEach(tab => {
+    tab.addEventListener("click", () => switchLibraryTab(tab.dataset.tab));
+});
+
+document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && libraryModal.style.display === "flex") {
+        closeLibrary();
+    }
 });
 
 async function init() {

@@ -143,3 +143,15 @@ def get_core_agents():
 
 def get_default_agents():
     return dict(AGENTS)
+
+
+def get_all_agents():
+    from synthchat.agent_loader import get_all_agents as _get_all
+    return _get_all()
+
+
+def get_agent_order():
+    from synthchat.agent_loader import load_custom_agents
+    custom = load_custom_agents()
+    custom_ids = sorted(custom.keys())
+    return AGENT_ORDER + [cid for cid in custom_ids if cid not in AGENT_ORDER]

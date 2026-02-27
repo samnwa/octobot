@@ -9,7 +9,8 @@ from octobot.tools import execute_tool, TOOL_DEFINITIONS, _build_description_wit
 from octobot.agent import _parse_xml_tool_calls, _tag_untrusted_content, _UNTRUSTED_CONTENT_TOOLS, _is_transient_error
 from octobot.router import record_success, record_failure, get_fallbacks
 
-from synthchat.agents import AGENTS
+from synthchat.agents import AGENTS, CORE_AGENTS
+from synthchat.agent_loader import get_all_agents, load_skill
 from synthchat.channels import ChannelStore
 from synthchat.scheduler import SCHEDULER_TOOL_DEFINITIONS, execute_scheduler_tool
 from synthchat.documents import DOCUMENT_TOOL_DEFINITIONS, execute_document_tool
@@ -17,7 +18,9 @@ from synthchat.history import save_message, load_history
 
 _MENTION_RE = re.compile(r'@(\w+)', re.IGNORECASE)
 
-_AGENT_NAME_TO_ID = {a["name"].lower(): aid for aid, a in AGENTS.items()}
+
+def _build_agent_name_map():
+    return {a["name"].lower(): aid for aid, a in get_all_agents().items()}
 
 _SCHEDULER_TOOL_NAMES = {t["name"] for t in SCHEDULER_TOOL_DEFINITIONS}
 _DOCUMENT_TOOL_NAMES = {t["name"] for t in DOCUMENT_TOOL_DEFINITIONS}
@@ -33,7 +36,8 @@ def _get_channel_store():
 
 
 def _get_tools_for_agent(agent_id):
-    agent_def = AGENTS[agent_id]
+    all_agents = get_all_agents()
+    agent_def = all_agents.get(agent_id, AGENTS.get(agent_id, {}))
     allowed = set(agent_def.get("tools", []))
     if not allowed:
         return []
@@ -96,10 +100,11 @@ def _call_model(client, model, system_prompt, messages, tools, eq, agent_id):
 
 
 def _extract_mentions(text):
+    name_map = _build_agent_name_map()
     found = []
     for m in _MENTION_RE.finditer(text):
         name = m.group(1).lower()
-        aid = _AGENT_NAME_TO_ID.get(name)
+        aid = name_map.get(name)
         if aid:
             found.append(aid)
     return found
@@ -113,7 +118,6 @@ def _build_channel_context(channel_messages, current_agent_id):
 
     transcript = "\n\n".join(parts)
 
-    agent_def = AGENTS.get(current_agent_id, {})
     if current_agent_id == "recap":
         instruction = "It's your turn. Summarize everything that was accomplished in this conversation. Produce your summary now."
     else:
@@ -124,9 +128,61 @@ def _build_channel_context(channel_messages, current_agent_id):
     ]
 
 
-def _run_agent_turn(client, model, agent_id, channel_messages, eq, stop_event, channel_id="workspace", max_tool_turns=4):
-    agent_def = AGENTS[agent_id]
+def _build_otto_system_prompt(channel_agent_ids):
+    all_agents = get_all_agents()
+    otto_def = all_agents.get("otto", AGENTS.get("otto", {}))
+    base_system = otto_def.get("system", "")
+
+    team_lines = []
+    for aid in channel_agent_ids:
+        if aid in ("otto", "user"):
+            continue
+        agent = all_agents.get(aid)
+        if agent:
+            team_lines.append(f"- @{agent['name']} ({agent['role']}): {agent.get('description', agent.get('role', ''))}")
+
+    if not team_lines:
+        return base_system
+
+    dynamic_team = "\n".join(team_lines)
+
+    base_parts = base_system.split("Your team:\n")
+    if len(base_parts) == 2:
+        rules_idx = base_parts[1].find("\nRULES:")
+        if rules_idx >= 0:
+            rules_section = base_parts[1][rules_idx:]
+        else:
+            rules_section = ""
+        return base_parts[0] + "Your team:\n" + dynamic_team + rules_section
+
+    return base_system + f"\n\nYour current team:\n{dynamic_team}"
+
+
+def _build_system_with_skills(agent_def):
     system_prompt = agent_def["system"]
+    skills = agent_def.get("skills", [])
+    if not skills:
+        return system_prompt
+    skill_sections = []
+    for skill_name in skills:
+        content = load_skill(skill_name)
+        if content:
+            skill_sections.append(f"\n\n## Skill: {skill_name}\n{content}")
+    if skill_sections:
+        system_prompt = system_prompt + "".join(skill_sections)
+    return system_prompt
+
+
+def _run_agent_turn(client, model, agent_id, channel_messages, eq, stop_event, channel_id="workspace", max_tool_turns=4, channel_agent_ids=None):
+    all_agents = get_all_agents()
+    agent_def = all_agents.get(agent_id, AGENTS.get(agent_id))
+    if not agent_def:
+        eq.put(("agent_error", {"agent_id": agent_id, "message": f"Unknown agent: {agent_id}"}))
+        return None
+    if agent_id == "otto" and channel_agent_ids:
+        system_prompt = _build_otto_system_prompt(channel_agent_ids)
+    else:
+        system_prompt = _build_system_with_skills(agent_def)
     tools = _get_tools_for_agent(agent_id)
 
     conversation = _build_channel_context(channel_messages, agent_id)
@@ -306,7 +362,7 @@ def run_multi_agent_chat(user_message, eq, stop_event=None, channel_id="workspac
             eq.put(("done", {}))
             return
 
-        otto_msg = _run_agent_turn(client, model, "otto", channel_messages, eq, stop_event, channel_id)
+        otto_msg = _run_agent_turn(client, model, "otto", channel_messages, eq, stop_event, channel_id, channel_agent_ids=channel_agent_ids)
         if not otto_msg:
             eq.put(("done", {}))
             return
@@ -327,7 +383,7 @@ def run_multi_agent_chat(user_message, eq, stop_event=None, channel_id="workspac
             if stop_event and stop_event.is_set():
                 break
 
-            msg = _run_agent_turn(client, model, agent_id, channel_messages, eq, stop_event, channel_id)
+            msg = _run_agent_turn(client, model, agent_id, channel_messages, eq, stop_event, channel_id, channel_agent_ids=channel_agent_ids)
             if msg:
                 channel_messages.append(msg)
 
@@ -343,18 +399,18 @@ def run_multi_agent_chat(user_message, eq, stop_event=None, channel_id="workspac
         has_sage = any(m.get("agent_id") == "sage" for m in channel_messages if not m.get("is_user"))
         dev_msgs = [m for m in channel_messages if m.get("agent_id") == "dev" and not m.get("is_user")]
         if not has_sage and dev_msgs and "sage" in channel_agent_ids:
-            sage_msg = _run_agent_turn(client, model, "sage", channel_messages, eq, stop_event, channel_id)
+            sage_msg = _run_agent_turn(client, model, "sage", channel_messages, eq, stop_event, channel_id, channel_agent_ids=channel_agent_ids)
             if sage_msg:
                 channel_messages.append(sage_msg)
 
                 sage_mentions = _extract_mentions(sage_msg["content"])
                 if "dev" in sage_mentions and "dev" in channel_agent_ids:
-                    fix_msg = _run_agent_turn(client, model, "dev", channel_messages, eq, stop_event, channel_id)
+                    fix_msg = _run_agent_turn(client, model, "dev", channel_messages, eq, stop_event, channel_id, channel_agent_ids=channel_agent_ids)
                     if fix_msg:
                         channel_messages.append(fix_msg)
 
         if "recap" in channel_agent_ids:
-            recap_msg = _run_agent_turn(client, model, "recap", channel_messages, eq, stop_event, channel_id)
+            recap_msg = _run_agent_turn(client, model, "recap", channel_messages, eq, stop_event, channel_id, channel_agent_ids=channel_agent_ids)
             if recap_msg:
                 channel_messages.append(recap_msg)
 

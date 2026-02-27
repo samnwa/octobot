@@ -3,7 +3,7 @@ import json
 import re
 import time
 
-from synthchat.agents import AGENTS, AGENT_ORDER
+from synthchat.agents import AGENTS, AGENT_ORDER, get_agent_order
 
 CHANNELS_DIR = os.path.expanduser("~/.octobot/synthchat")
 CHANNELS_FILE = os.path.join(CHANNELS_DIR, "channels.json")
@@ -59,12 +59,15 @@ class ChannelStore:
             json.dump(data, f, indent=2)
 
     def _enforce_core_agents(self, agent_ids):
+        from synthchat.agents import get_all_agents
+        all_agents = get_all_agents()
         ids = list(agent_ids)
         for core in CORE_AGENT_IDS:
             if core not in ids:
                 ids.append(core)
-        valid = [aid for aid in ids if aid in AGENTS]
-        ordered = [aid for aid in AGENT_ORDER if aid in valid]
+        valid = [aid for aid in ids if aid in all_agents]
+        agent_order = get_agent_order()
+        ordered = [aid for aid in agent_order if aid in valid]
         for aid in valid:
             if aid not in ordered:
                 ordered.append(aid)

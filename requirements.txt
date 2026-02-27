@@ -7,3 +7,4 @@ rich>=13.0.0
 trafilatura>=2.0.0
 fpdf2
 Pillow
+pyyaml
