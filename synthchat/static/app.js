@@ -29,7 +29,7 @@ let activeChannelId = "workspace";
 let processing = false;
 let msgCounter = 0;
 let pendingToolCards = {};
-let demoPlayed = false;
+let demoRunning = false;
 
 marked.setOptions({
     highlight: function (code, lang) {
@@ -276,22 +276,19 @@ async function switchChannel(channelId) {
         renderAgentList(null);
     }
 
+    const isWorkspace = channelId === "workspace";
     messageFeed.innerHTML = `
         <div class="feed-start">
             <div class="feed-start-icon">&#128025;</div>
             <h2>Welcome to #${escapeHtml(name.toLowerCase())}</h2>
             <p>This is where agents collaborate on your tasks. Send a message to get started.</p>
+            ${isWorkspace ? '<button class="demo-btn" id="demo-btn" onclick="startDemo()">&#9654; Watch Demo</button>' : ''}
         </div>
     `;
 
     msgCounter = 0;
 
-    if (channelId === "workspace" && !demoPlayed) {
-        demoPlayed = true;
-        await playConversation();
-    } else {
-        await loadChannelHistory(channelId);
-    }
+    await loadChannelHistory(channelId);
 
     await loadSchedules();
 }
@@ -348,7 +345,16 @@ async function loadSchedules() {
     }
 }
 
-async function playConversation() {
+window.startDemo = async function () {
+    if (demoRunning || processing) return;
+    demoRunning = true;
+
+    const demoBtn = document.getElementById("demo-btn");
+    if (demoBtn) {
+        demoBtn.disabled = true;
+        demoBtn.textContent = "Playing...";
+    }
+
     try {
         const r = await fetch(BASE_PATH + "/api/mock-conversation");
         const data = await r.json();
@@ -376,13 +382,19 @@ async function playConversation() {
         }
         const divider = document.createElement("div");
         divider.className = "feed-divider";
-        divider.innerHTML = "<span>Demo complete \u2014 try sending a message below</span>";
+        divider.innerHTML = "<span>Demo complete \u2014 try sending a real message below</span>";
         messageFeed.appendChild(divider);
         messageFeed.scrollTop = messageFeed.scrollHeight;
     } catch (e) {
-        console.error("Failed to load conversation:", e);
+        console.error("Failed to load demo:", e);
     }
-}
+
+    demoRunning = false;
+    if (demoBtn) {
+        demoBtn.disabled = false;
+        demoBtn.innerHTML = "&#9654; Watch Demo";
+    }
+};
 
 function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));

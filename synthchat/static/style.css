@@ -250,6 +250,36 @@ html, body {
     margin: 0 auto;
 }
 
+.demo-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 16px;
+    padding: 8px 20px;
+    background: transparent;
+    border: 1px solid var(--cyan);
+    border-radius: 8px;
+    color: var(--cyan);
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s, opacity 0.2s;
+}
+
+.demo-btn:hover {
+    background: rgba(0, 229, 200, 0.1);
+}
+
+.demo-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.demo-btn:disabled:hover {
+    background: transparent;
+}
+
 .message {
     display: flex;
     gap: 12px;
