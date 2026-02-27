@@ -2,7 +2,7 @@ import re
 import json
 import time
 import traceback
-from anthropic import Anthropic
+from anthropic import Anthropic, APIError, APITimeoutError
 
 from octobot.config import get_api_key, get_model, SYNTHETIC_BASE_URL, MAX_TOKENS, load_config
 from octobot.tools import execute_tool, TOOL_DEFINITIONS, _build_description_with_examples
@@ -61,7 +61,13 @@ def _call_model(client, model, system_prompt, messages, tools, eq, agent_id):
                     "text": f"Using {try_model} (failover)",
                 }))
             return response
+        except (APIError, APITimeoutError) as e:
+            record_failure(try_model)
+            if not _is_transient_error(e):
+                raise
         except Exception as e:
+            # Log unexpected errors but still retry on transient issues
+            traceback.print_exc()
             record_failure(try_model)
             if not _is_transient_error(e):
                 raise

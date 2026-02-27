@@ -39,8 +39,9 @@ def _parse_xml_tool_calls(text):
             value = arg_match.group(2).strip()
             try:
                 value = json.loads(value)
-            except (json.JSONDecodeError, ValueError):
-                pass
+            except (json.JSONDecodeError, ValueError) as e:
+                # Log parsing errors to help debug malformed tool arguments
+                console.print(f"[yellow]Warning: Failed to parse JSON arg '{key}': {e}[/yellow]")
             args[key] = value
         calls.append({"name": name, "input": args})
     clean_text = _TOOL_CALL_RE.sub("", text).strip()

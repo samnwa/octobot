@@ -14,7 +14,7 @@ dependencies = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["octobot*", "octoweb*"]
+include = ["octobot*", "octoweb*", "synthchat*"]
 
 [project.scripts]
 octobot = "octobot.cli:main"
