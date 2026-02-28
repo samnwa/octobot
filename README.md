@@ -67,6 +67,24 @@ A page will open in your browser. Paste the API key you copied in Step 1, click 
 - **Rich Terminal CLI** -- markdown rendering, syntax highlighting, color-coded panels, slash commands
 - **Thinking Display** -- see the model's reasoning process in real time
 - **Token Tracking** -- monitor input/output token usage per session
+- **SynthChat** -- Slack-like multi-agent workspace with 6 specialized agents, custom agent creation, community library, and document generation ([full docs](synthchat/README.md))
+
+## SynthChat
+
+SynthChat is a multi-agent workspace built into Octobot. Instead of chatting with a single AI, you work with a team of 6 specialized agents that collaborate in real time -- an orchestrator routes tasks, a coder writes code, a researcher searches the web, a reviewer catches bugs, a scheduler manages reminders, and a summarizer wraps everything up.
+
+**Access it** at `http://localhost:5000/synthchat/` when Octobot is running (or standalone via `python main-chat.py`).
+
+**Key features:**
+
+- **6 built-in agents** -- Otto (orchestrator), Dev (coder), Scout (researcher), Sage (reviewer), Scheduler, Recap (summarizer)
+- **Custom agents** -- create your own agents with custom tools, skills, and personalities via the UI
+- **Agent Library** -- browse, install, and publish agents with one click. Ships with 5 community agents (DataAnalyst, DevOps, Writer, QATester, Designer)
+- **Channels** -- organize work into separate channels with different agent rosters
+- **Document generation** -- agents create downloadable CSV, HTML, PDF, and PNG files
+- **Skills system** -- load reusable knowledge modules into any agent
+
+See the [SynthChat README](synthchat/README.md) for full documentation.
 
 ## Examples
 
