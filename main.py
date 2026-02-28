@@ -5,10 +5,13 @@ REQUIRED_PACKAGES = {
     "anthropic": "anthropic",
     "click": "click",
     "flask": "flask",
+    "fpdf": "fpdf2",
     "httpx": "httpx",
+    "PIL": "pillow",
     "playwright": "playwright",
     "rich": "rich",
     "trafilatura": "trafilatura",
+    "yaml": "pyyaml",
 }
 
 
