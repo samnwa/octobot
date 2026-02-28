@@ -430,8 +430,27 @@ const IMAGE_EXTS = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "
 
 async function openFile(path) {
     try {
+        const ext = path.split(".").pop().toLowerCase();
+
         const r = await fetch(`/api/file?path=${encodeURIComponent(path)}`);
         const data = await r.json();
+
+        if (data.error && (ext === "html" || ext === "htm") && data.size) {
+            viewerPath.textContent = path;
+            currentFileContent = "";
+            currentFileExt = ext;
+            viewerContent.innerHTML = '<pre><code>File too large for code view. Showing preview.</code></pre>';
+            viewerToggle.classList.remove("hidden");
+            viewerPreview.src = `/api/file/raw?path=${encodeURIComponent(path)}`;
+            viewerPreview.removeAttribute("srcdoc");
+            viewerPreview.classList.remove("hidden");
+            viewerContent.classList.add("hidden");
+            togglePreview.classList.add("active");
+            toggleCode.classList.remove("active");
+            fileViewer.classList.remove("hidden");
+            return;
+        }
+
         if (data.error) {
             alert(data.error);
             return;
@@ -476,7 +495,14 @@ async function openFile(path) {
 }
 
 function showPreview() {
-    viewerPreview.srcdoc = currentFileContent;
+    const path = viewerPath.textContent;
+    if (path && (currentFileExt === "html" || currentFileExt === "htm")) {
+        viewerPreview.removeAttribute("srcdoc");
+        viewerPreview.src = `/api/file/raw?path=${encodeURIComponent(path)}`;
+    } else {
+        viewerPreview.removeAttribute("src");
+        viewerPreview.srcdoc = currentFileContent;
+    }
     viewerPreview.classList.remove("hidden");
     viewerContent.classList.add("hidden");
     togglePreview.classList.add("active");

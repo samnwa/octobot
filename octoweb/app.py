@@ -213,6 +213,11 @@ MIME_TYPES = {
     "png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg",
     "gif": "image/gif", "webp": "image/webp", "svg": "image/svg+xml",
     "bmp": "image/bmp", "ico": "image/x-icon",
+    "html": "text/html", "htm": "text/html",
+    "css": "text/css", "js": "text/javascript",
+    "json": "application/json", "xml": "text/xml",
+    "txt": "text/plain", "md": "text/plain",
+    "csv": "text/csv", "pdf": "application/pdf",
 }
 
 
