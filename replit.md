@@ -5,7 +5,8 @@ Locally-runnable, super-efficient AI tool-calling agent using the Synthetic API 
 ## Architecture
 
 ```
-main.py                  - Entry point (web UI by default, --cli for terminal)
+main.py                  - Entry point (web UI by default, --cli for terminal, --skip-update to bypass update check)
+VERSION                  - Current version (semver, read by auto-updater)
 main-chat.py             - Standalone SynthChat entry point (port 3000)
 octobot/
   __init__.py            - Package init
@@ -18,6 +19,7 @@ octobot/
   identity.py            - Identity/personality system (AGENT.md, IDENTITY.md)
   approval.py            - Approval workflows for dangerous operations (rm -rf, sudo, dotfiles)
   subagent.py            - Subagent spawning with isolated conversations (15 turn limit)
+  updater.py             - GitHub release checker + auto-updater with Rich progress bar
   browser.py             - Playwright browser automation with NixOS library auto-discovery
   sandbox.py             - AST-validated Python sandbox for multi-tool chaining
   octopus.py             - Swimming octopus animation (loading indicator during API calls)

@@ -65,9 +65,34 @@ def check_dependencies():
         return False
 
 
+def check_for_updates():
+    if "--skip-update" in sys.argv:
+        sys.argv.remove("--skip-update")
+        return
+
+    try:
+        from octobot.updater import check_for_update, display_update_prompt, apply_update
+
+        update_info = check_for_update()
+        if update_info is None:
+            return
+
+        if display_update_prompt(update_info):
+            success = apply_update(update_info)
+            if success:
+                print("\n  Please restart octobot to use the new version.\n")
+                sys.exit(0)
+            else:
+                print("\n  Update failed. Continuing with current version.\n")
+    except Exception as e:
+        print(f"  (Update check skipped: {e})")
+
+
 if __name__ == "__main__":
     if not check_dependencies():
         sys.exit(1)
+
+    check_for_updates()
 
     if "--cli" in sys.argv:
         sys.argv.remove("--cli")
