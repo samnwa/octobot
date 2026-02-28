@@ -1,4 +1,5 @@
 import json
+import os
 import queue
 import threading
 
@@ -15,9 +16,11 @@ from synthchat.history import load_history, clear_history
 from synthchat.scheduler import ScheduleStore
 from synthchat.documents import DOCUMENTS_DIR
 
+_HERE = os.path.dirname(os.path.abspath(__file__))
+
 bp = Blueprint("synthchat", __name__,
-               template_folder="templates",
-               static_folder="static",
+               template_folder=os.path.join(_HERE, "templates"),
+               static_folder=os.path.join(_HERE, "static"),
                static_url_path="static")
 
 _stop_event = threading.Event()
