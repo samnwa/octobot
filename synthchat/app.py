@@ -182,8 +182,8 @@ MOCK_CONVERSATION = [
                 "filename": "demo_weather-summary.pdf",
                 "display_name": "weather-summary.pdf",
                 "format": "pdf",
-                "size": 1666,
-                "url": "/api/documents/0ebaa7c6/0ebaa7c6_weather-script-summary.pdf",
+                "size": 2048,
+                "url": "/api/documents/demo/demo_weather-summary.pdf",
             }
         ],
         ts_offset=12,
@@ -498,8 +498,48 @@ def publish_agent(agent_id):
         return jsonify({"error": str(e)}), 400
 
 
+def _ensure_demo_pdf():
+    demo_filename = "demo_weather-summary.pdf"
+    filepath = os.path.join(DOCUMENTS_DIR, demo_filename)
+    if os.path.exists(filepath):
+        return
+    os.makedirs(DOCUMENTS_DIR, exist_ok=True)
+    try:
+        from synthchat.documents import _create_pdf
+        content = (
+            "# Weather Script Summary\n\n"
+            "## Project: weather.py\n\n"
+            "A terminal weather tool using the free wttr.in API.\n\n"
+            "## Features\n\n"
+            "- Current conditions: temperature, humidity, wind speed, description\n"
+            "- 3-day forecast with highs and lows\n"
+            "- Emoji-enhanced terminal display\n"
+            "- Proper URL encoding for city names with spaces/special characters\n"
+            "- Specific error handling (city not found, network errors)\n\n"
+            "## Usage\n\n"
+            "    python weather.py San Francisco\n\n"
+            "## API\n\n"
+            "Uses the free wttr.in API (no API key required).\n"
+            "Endpoint: https://wttr.in/{city}?format=j1\n\n"
+            "## Team Contributions\n\n"
+            "- Scout: Found the wttr.in API and confirmed it requires no authentication\n"
+            "- Dev: Wrote the weather.py script with error handling and URL encoding\n"
+            "- Sage: Reviewed code, caught URL encoding bug and missing exception types\n"
+            "- Scheduler: Set up daily weather check reminder\n"
+            "- Recap: Generated this summary document\n\n"
+            "## Scheduled Task\n\n"
+            "- Name: Daily Weather Check\n"
+            "- Frequency: Every day\n"
+            "- Action: Run the weather script and report current conditions"
+        )
+        _create_pdf(filepath, content, title="Weather Script Summary")
+    except Exception:
+        pass
+
+
 @bp.route("/api/mock-conversation")
 def get_mock_conversation():
+    _ensure_demo_pdf()
     return jsonify({"messages": MOCK_CONVERSATION})
 
 
