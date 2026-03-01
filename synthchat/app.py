@@ -193,7 +193,12 @@ MOCK_CONVERSATION = [
 
 @bp.route("/")
 def index():
-    return render_template("synthchat.html")
+    try:
+        return render_template("synthchat.html")
+    except Exception:
+        template_path = os.path.join(_HERE, "templates", "synthchat.html")
+        with open(template_path, "r", encoding="utf-8") as f:
+            return f.read()
 
 
 @bp.route("/api/agents")
