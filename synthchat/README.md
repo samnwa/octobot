@@ -6,19 +6,21 @@ A Slack-like multi-agent workspace where specialized AI agents collaborate on yo
 
 SynthChat runs automatically as part of Octobot. No extra setup needed.
 
-**Via Octobot (recommended):**
-```bash
-python main.py
-```
-Then visit `http://localhost:5000/synthchat/` (or click the chat icon in Octobot's toolbar).
+| Command | What it does |
+|---------|-------------|
+| `python main.py` | Octobot + SynthChat at `http://localhost:5000/synthchat/` |
+| `python main-chat.py` | SynthChat standalone at `http://localhost:3000` |
+| `python desktop.py` | Native desktop window via pywebview |
 
-**Standalone mode:**
-```bash
-python main-chat.py
-```
-Runs SynthChat on its own at `http://localhost:3000`.
+All modes use the same API key and configuration as Octobot.
 
-Both modes use the same API key and configuration as Octobot.
+### Desktop App
+
+`python desktop.py` opens SynthChat in a native OS window using [pywebview](https://pywebview.flowrl.com/). It starts the server in the background, opens the app, and shuts everything down when you close the window. pywebview is auto-installed on first run.
+
+### PWA Install
+
+Visit SynthChat in Chrome or Edge and click "Install" in the address bar. This gives you a standalone window, taskbar icon, and offline-capable app experience -- no `desktop.py` or pywebview needed.
 
 ## How It Works
 
@@ -231,9 +233,16 @@ synthchat/
   scheduler.py        Schedule store + scheduler tools
   documents.py        Document generation tool (CSV, HTML, PDF, PNG)
   history.py          Per-channel conversation persistence
-  templates/          HTML template
-  static/             Frontend JS + CSS
+  templates/          HTML template (synthchat.html)
+  static/
+    app.js            Frontend JS (SSE, agents, channels, library, scheduler)
+    style.css         Dark theme, sidebar, modals, responsive layout
+    manifest.json     PWA manifest (name, icons, theme)
+    sw.js             Service worker (offline caching)
+    icon-192.png      PWA icon (192x192)
+    icon-512.png      PWA icon (512x512)
 
+desktop.py            Native desktop launcher (pywebview)
 community/
   agents/             Community agent YAML catalog (ships with 5 agents)
 ```
