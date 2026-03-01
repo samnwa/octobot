@@ -542,7 +542,9 @@ def stop():
 
 
 def create_standalone_app():
-    app = Flask(__name__)
+    app = Flask(__name__,
+                template_folder=os.path.join(_HERE, "templates"),
+                static_folder=os.path.join(_HERE, "static"))
     app.register_blueprint(bp, url_prefix="/synthchat")
 
     @app.route("/")
