@@ -25,4 +25,5 @@ outputs/
 
 *.html
 !octoweb/templates/*.html
+!synthchat/templates/*.html
 !examples/*.html
