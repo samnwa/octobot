@@ -31,6 +31,9 @@ let msgCounter = 0;
 let pendingToolCards = {};
 let pendingDocuments = {};
 let demoRunning = false;
+let messageQueue = [];
+let currentAbortController = null;
+let pendingChannelSwitch = null;
 
 marked.setOptions({
     highlight: function (code, lang) {
@@ -129,7 +132,7 @@ function renderDocumentCards(documents) {
 
 function renderMessage(msg) {
     const el = document.createElement("div");
-    el.className = "message" + (msg.is_user ? " user-msg" : "");
+    el.className = "message" + (msg.is_user ? " user-msg" : "") + (msg._queued ? " queued-msg" : "");
     el.id = "msg-" + msgCounter++;
 
     const rawHtml = msg._escaped
@@ -139,12 +142,14 @@ function renderMessage(msg) {
     const toolHtml = renderToolCards(msg.tool_use);
     const docHtml = renderDocumentCards(msg.documents);
     const ts = msg.timestamp || msg.ts_offset;
+    const queuedBadge = msg._queued ? '<span class="queued-label">queued</span>' : '';
 
     el.innerHTML = `
         <div class="msg-avatar" style="background:${msg.color}">${msg.avatar}</div>
         <div class="msg-body">
             <div class="msg-header">
                 <span class="msg-name" style="color:${msg.color}">${escapeHtml(msg.agent_name)}</span>
+                ${queuedBadge}
                 <span class="msg-time">${formatTime(ts)}</span>
             </div>
             <div class="msg-content">${contentHtml}</div>
@@ -198,14 +203,66 @@ function clearTyping() {
 
 function setProcessing(val) {
     processing = val;
-    sendBtn.disabled = val;
-    messageInput.disabled = val;
+    messageInput.disabled = false;
+    sendBtn.disabled = false;
     if (val) {
         sendBtn.classList.add("processing");
+        sendBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>';
+        sendBtn.title = "Stop";
     } else {
         sendBtn.classList.remove("processing");
+        sendBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>';
+        sendBtn.title = "Send";
         clearTyping();
+        processQueue();
     }
+    updateQueueBadge();
+}
+
+function updateQueueBadge() {
+    let badge = document.getElementById("queue-badge");
+    if (messageQueue.length > 0) {
+        if (!badge) {
+            badge = document.createElement("div");
+            badge.id = "queue-badge";
+            document.querySelector(".input-wrapper").appendChild(badge);
+        }
+        badge.textContent = messageQueue.length + " queued";
+        badge.style.display = "block";
+    } else if (badge) {
+        badge.style.display = "none";
+    }
+}
+
+function processQueue() {
+    if (messageQueue.length > 0 && !processing) {
+        const next = messageQueue.shift();
+        updateQueueBadge();
+        if (next.channelId !== activeChannelId) {
+            switchChannel(next.channelId).then(() => startLiveChat(next.text));
+        } else {
+            startLiveChat(next.text);
+        }
+    } else if (pendingChannelSwitch) {
+        const chId = pendingChannelSwitch;
+        pendingChannelSwitch = null;
+        switchChannel(chId);
+    }
+}
+
+async function stopProcessing() {
+    try {
+        await fetch(BASE_PATH + "/stop", { method: "POST" });
+    } catch (e) {
+        console.error("Stop failed:", e);
+    }
+    messageQueue = [];
+    updateQueueBadge();
+    setTimeout(() => {
+        if (processing) {
+            setProcessing(false);
+        }
+    }, 3000);
 }
 
 async function loadAgents() {
@@ -274,7 +331,7 @@ function renderChannelList() {
         el.addEventListener("click", (e) => {
             if (e.target.classList.contains("channel-delete")) return;
             const chId = el.dataset.channel;
-            if (chId !== activeChannelId && !processing) {
+            if (chId !== activeChannelId) {
                 switchChannel(chId);
             }
         });
@@ -437,7 +494,7 @@ function sleep(ms) {
 
 function sendUserMessage() {
     const text = messageInput.value.trim();
-    if (!text || processing) return;
+    if (!text) return;
 
     renderMessage({
         agent_id: "user",
@@ -449,12 +506,18 @@ function sendUserMessage() {
         tool_use: [],
         is_user: true,
         _escaped: true,
+        _queued: processing,
     });
 
     messageInput.value = "";
     messageInput.style.height = "auto";
 
-    startLiveChat(text);
+    if (processing) {
+        messageQueue.push({ text, channelId: activeChannelId });
+        updateQueueBadge();
+    } else {
+        startLiveChat(text);
+    }
 }
 
 function startLiveChat(message) {
@@ -650,7 +713,11 @@ async function createChannel() {
         closeCreateModal();
         await loadChannels();
         if (data.channel) {
-            await switchChannel(data.channel.id);
+            if (processing) {
+                pendingChannelSwitch = data.channel.id;
+            } else {
+                await switchChannel(data.channel.id);
+            }
         }
     } catch (e) {
         console.error("Failed to create channel:", e);
@@ -668,7 +735,13 @@ createModal.addEventListener("click", (e) => {
     if (e.target === createModal) closeCreateModal();
 });
 
-sendBtn.addEventListener("click", sendUserMessage);
+sendBtn.addEventListener("click", () => {
+    if (processing && !messageInput.value.trim()) {
+        stopProcessing();
+    } else {
+        sendUserMessage();
+    }
+});
 messageInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();

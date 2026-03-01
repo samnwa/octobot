@@ -419,13 +419,46 @@ html, body {
 }
 
 #send-btn.processing {
-    opacity: 0.5;
-    cursor: not-allowed;
+    background: #e53e3e;
+    color: #fff;
+    cursor: pointer;
+    opacity: 1;
+}
+
+#send-btn.processing:hover {
+    opacity: 0.85;
 }
 
 #send-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+}
+
+.queued-msg {
+    opacity: 0.6;
+}
+
+.queued-label {
+    font-size: 10px;
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-dim);
+    padding: 1px 6px;
+    border-radius: 3px;
+    margin-left: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+#queue-badge {
+    position: absolute;
+    top: -20px;
+    right: 44px;
+    font-size: 11px;
+    color: var(--text-dim);
+    background: var(--sidebar);
+    padding: 2px 8px;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .tool-card {
@@ -561,6 +594,7 @@ html, body {
 }
 
 .input-wrapper {
+    position: relative;
     display: flex;
     align-items: flex-end;
     gap: 8px;
