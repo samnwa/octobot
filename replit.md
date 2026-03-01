@@ -8,6 +8,7 @@ Locally-runnable, super-efficient AI tool-calling agent using the Synthetic API 
 main.py                  - Entry point (web UI by default, --cli for terminal, --skip-update to bypass update check)
 VERSION                  - Current version (semver, read by auto-updater)
 main-chat.py             - Standalone SynthChat entry point (port 3000)
+desktop.py               - Desktop app launcher (pywebview, starts server + native window)
 octobot/
   __init__.py            - Package init
   config.py              - Configuration (API key, model, base URL, constants)
