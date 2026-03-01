@@ -193,10 +193,12 @@ MOCK_CONVERSATION = [
 
 @bp.route("/sw.js")
 def service_worker():
-    return send_from_directory(
+    resp = send_from_directory(
         os.path.join(_HERE, "static"), "sw.js",
         mimetype="application/javascript",
     )
+    resp.headers["Service-Worker-Allowed"] = "/synthchat/"
+    return resp
 
 
 @bp.route("/")
