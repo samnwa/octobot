@@ -1,8 +1,8 @@
-const CACHE_NAME = "synthchat-v3";
+const CACHE_NAME = "synthchat-v4";
 const PRECACHE = [
   "/synthchat/",
-  "/synthchat/static/style.css?v=9",
-  "/synthchat/static/app.js?v=9",
+  "/synthchat/static/style.css?v=10",
+  "/synthchat/static/app.js?v=10",
   "/synthchat/static/manifest.json",
   "/synthchat/static/icon-192.png",
   "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap",

@@ -15,7 +15,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('synthchat.static', filename='style.css') }}?v=9">
+    <link rel="stylesheet" href="{{ url_for('synthchat.static', filename='style.css') }}?v=10">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.0/marked.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
@@ -43,6 +43,14 @@
                     <button class="create-agent-btn" id="create-agent-btn" title="Create agent">+</button>
                 </div>
                 <div id="agent-list" class="agent-list"></div>
+            </div>
+
+            <div class="sidebar-section" id="files-section" style="display:none">
+                <div class="section-label section-label-toggle" id="files-toggle">
+                    Files
+                    <span class="file-count" id="file-count"></span>
+                </div>
+                <div id="file-list" class="file-list"></div>
             </div>
 
             <div class="sidebar-section" id="schedules-section" style="display:none">
@@ -204,7 +212,7 @@
         </div>
     </div>
 
-    <script src="{{ url_for('synthchat.static', filename='app.js') }}?v=9"></script>
+    <script src="{{ url_for('synthchat.static', filename='app.js') }}?v=10"></script>
     <script>
     if ("serviceWorker" in navigator) {
         navigator.serviceWorker.register("{{ url_for('synthchat.service_worker') }}", { scope: "/synthchat/" });

@@ -1,5 +1,6 @@
 import re
 import json
+import os
 import time
 import traceback
 from anthropic import Anthropic, APIError, APITimeoutError
@@ -13,6 +14,36 @@ from synthchat.agents import AGENTS, CORE_AGENTS
 from synthchat.agent_loader import get_all_agents, load_skill
 from synthchat.channels import ChannelStore
 from synthchat.scheduler import SCHEDULER_TOOL_DEFINITIONS, execute_scheduler_tool
+
+_WRITTEN_FILES_PATH = os.path.expanduser("~/.octobot/synthchat/written_files.json")
+
+
+def _track_written_file(tool_name, tool_input, result):
+    if tool_name != "write_file":
+        return
+    path = tool_input.get("path", "")
+    if not path or not isinstance(result, dict) or result.get("status") != "ok":
+        return
+    ext = os.path.splitext(path)[1].lower().lstrip(".")
+    entry = {
+        "display_name": os.path.basename(path),
+        "path": os.path.abspath(path),
+        "format": ext or "txt",
+        "source": "write_file",
+    }
+    try:
+        existing = []
+        if os.path.isfile(_WRITTEN_FILES_PATH):
+            with open(_WRITTEN_FILES_PATH, "r") as f:
+                existing = json.load(f)
+        existing = [e for e in existing if e.get("path") != entry["path"]]
+        existing.insert(0, entry)
+        existing = existing[:50]
+        os.makedirs(os.path.dirname(_WRITTEN_FILES_PATH), exist_ok=True)
+        with open(_WRITTEN_FILES_PATH, "w") as f:
+            json.dump(existing, f)
+    except Exception:
+        pass
 from synthchat.documents import DOCUMENT_TOOL_DEFINITIONS, execute_document_tool
 from synthchat.history import save_message, load_history
 
@@ -255,6 +286,7 @@ def _run_agent_turn(client, model, agent_id, channel_messages, eq, stop_event, c
                     pass
             else:
                 result = execute_tool(tool_name, tool_input)
+                _track_written_file(tool_name, tool_input, result)
 
             if tool_name in _UNTRUSTED_CONTENT_TOOLS:
                 result = _tag_untrusted_content(result)

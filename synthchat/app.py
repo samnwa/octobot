@@ -353,6 +353,46 @@ def download_document(doc_id, filename):
     )
 
 
+@bp.route("/api/files")
+def list_files():
+    files = []
+    if os.path.isdir(DOCUMENTS_DIR):
+        for fname in sorted(os.listdir(DOCUMENTS_DIR), key=lambda f: os.path.getmtime(os.path.join(DOCUMENTS_DIR, f)), reverse=True):
+            filepath = os.path.join(DOCUMENTS_DIR, fname)
+            if not os.path.isfile(filepath):
+                continue
+            parts = fname.split("_", 1)
+            doc_id = parts[0] if len(parts) > 1 else fname
+            display = parts[1] if len(parts) > 1 else fname
+            ext = os.path.splitext(fname)[1].lower().lstrip(".")
+            files.append({
+                "id": doc_id,
+                "filename": fname,
+                "display_name": display,
+                "format": ext,
+                "size": os.path.getsize(filepath),
+                "url": f"/api/documents/{doc_id}/{fname}",
+                "modified": os.path.getmtime(filepath),
+            })
+    written_path = os.path.expanduser("~/.octobot/synthchat/written_files.json")
+    if os.path.isfile(written_path):
+        try:
+            with open(written_path, "r") as f:
+                written = json.load(f)
+            for wf in written:
+                fpath = wf.get("path", "")
+                if fpath and os.path.isfile(fpath):
+                    files.append({
+                        "display_name": wf.get("display_name", os.path.basename(fpath)),
+                        "format": wf.get("format", "txt"),
+                        "size": os.path.getsize(fpath),
+                        "source": "write_file",
+                    })
+        except Exception:
+            pass
+    return jsonify({"files": files})
+
+
 @bp.route("/api/agents/<agent_id>")
 def get_agent_profile(agent_id):
     all_ag = get_all_agents()

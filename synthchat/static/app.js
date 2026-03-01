@@ -21,6 +21,10 @@ const schedulesSection = document.getElementById("schedules-section");
 const schedulesList = document.getElementById("schedule-list");
 const scheduleCount = document.getElementById("schedule-count");
 const schedulesToggle = document.getElementById("schedules-toggle");
+const filesSection = document.getElementById("files-section");
+const filesList = document.getElementById("file-list");
+const fileCount = document.getElementById("file-count");
+const filesToggle = document.getElementById("files-toggle");
 
 let allAgents = {};
 let availableAgents = [];
@@ -437,6 +441,58 @@ async function loadSchedules() {
     }
 }
 
+const FILE_ICONS = {
+    csv: "📊", html: "🌐", pdf: "📄", png: "🖼️",
+    py: "🐍", js: "📜", json: "📋", txt: "📝", md: "📝",
+};
+
+function formatFileSize(bytes) {
+    if (bytes < 1024) return bytes + " B";
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+}
+
+async function loadFiles() {
+    try {
+        const r = await fetch(BASE_PATH + "/api/files");
+        const data = await r.json();
+        const files = data.files || [];
+
+        if (files.length === 0) {
+            filesSection.style.display = "none";
+            return;
+        }
+
+        filesSection.style.display = "";
+        fileCount.textContent = files.length;
+        filesList.innerHTML = files
+            .map((f) => {
+                const icon = FILE_ICONS[f.format] || "📎";
+                if (f.url) {
+                    return `
+                    <a class="file-item" href="${BASE_PATH + f.url}" target="_blank" title="${escapeHtml(f.display_name)} (${formatFileSize(f.size)})">
+                        <span class="file-icon">${icon}</span>
+                        <span class="file-name">${escapeHtml(f.display_name)}</span>
+                        <span class="file-size">${formatFileSize(f.size)}</span>
+                    </a>`;
+                }
+                return `
+                <div class="file-item file-local" title="${escapeHtml(f.display_name)} (${formatFileSize(f.size)})">
+                    <span class="file-icon">${icon}</span>
+                    <span class="file-name">${escapeHtml(f.display_name)}</span>
+                    <span class="file-size">${formatFileSize(f.size)}</span>
+                </div>`;
+            })
+            .join("");
+    } catch (e) {
+        console.error("Failed to load files:", e);
+    }
+}
+
+filesToggle.addEventListener("click", () => {
+    filesList.classList.toggle("collapsed");
+});
+
 window.startDemo = async function () {
     if (demoRunning || processing) return;
     demoRunning = true;
@@ -621,6 +677,7 @@ function handleSSEEvent(type, data) {
                 pendingDocuments[data.agent_id] = [];
             }
             pendingDocuments[data.agent_id].push(data);
+            loadFiles();
             break;
         }
 
@@ -1370,6 +1427,7 @@ async function init() {
     await loadChannels();
     await switchChannel("workspace");
     await loadSchedules();
+    await loadFiles();
 }
 
 init();

@@ -1043,6 +1043,64 @@ html, body {
     margin-left: 4px;
 }
 
+.file-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.file-list.collapsed {
+    display: none;
+}
+
+.file-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 12px 5px 16px;
+    text-decoration: none;
+    color: var(--text);
+    font-size: 12px;
+    border-radius: 4px;
+    transition: background 0.15s;
+    cursor: pointer;
+}
+
+.file-item:hover {
+    background: var(--sidebar-hover);
+}
+
+.file-icon {
+    font-size: 14px;
+    flex-shrink: 0;
+    width: 18px;
+    text-align: center;
+}
+
+.file-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-secondary);
+}
+
+.file-item:hover .file-name {
+    color: var(--text);
+}
+
+.file-size {
+    font-size: 10px;
+    color: var(--text-dim);
+    flex-shrink: 0;
+}
+
+.file-count {
+    font-size: 11px;
+    color: var(--cyan);
+    margin-left: 4px;
+}
+
 .section-label-toggle {
     cursor: pointer;
     transition: color 0.15s;
