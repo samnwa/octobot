@@ -8,16 +8,20 @@
 
 :root {
     --sidebar-bg: #1a1d21;
+    --sidebar: #1a1d21;
     --sidebar-hover: #27242c;
     --sidebar-active: #1164a3;
     --main-bg: #222529;
+    --bg: #222529;
     --msg-hover: #2a2d31;
     --input-bg: #2a2d31;
     --border: #393b40;
     --text: #e0e0e0;
     --text-muted: #9a9da1;
+    --text-secondary: #9a9da1;
     --text-dim: #6b6e73;
     --cyan: #00e5c8;
+    --accent: #00e5c8;
     --white: #ffffff;
 }
 
@@ -1580,6 +1584,12 @@ html, body {
 }
 
 .library-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
     z-index: 200;
 }
 
